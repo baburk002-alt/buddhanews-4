@@ -92,6 +92,9 @@ function rowToArticleDTO(row: Record<string, unknown>, index = 0) {
     coverImage: row.cover_image ? String(row.cover_image) : "/og-fallback.svg",
     coverAlt: titleEn,
     authorName: String(row.author_name || "Buddha Newsroom"),
+    authorAvatar: row.author_avatar ? String(row.author_avatar) : null,
+    authorLocation: row.author_location ? String(row.author_location) : null,
+    authorBio: row.author_bio ? String(row.author_bio) : null,
     featured: index === 0,
     breaking: false,
     readMinutes,
@@ -124,9 +127,9 @@ async function handleTrpcProcedure(
 
     if (search) {
       sql +=
-        " AND (LOWER(title_en) LIKE ? OR LOWER(COALESCE(title_ps, '')) LIKE ? OR LOWER(COALESCE(title_fa, '')) LIKE ? OR LOWER(COALESCE(summary_en, '')) LIKE ?)";
+        " AND (LOWER(title_en) LIKE ? OR LOWER(COALESCE(title_ps, '')) LIKE ? OR LOWER(COALESCE(title_fa, '')) LIKE ? OR LOWER(COALESCE(summary_en, '')) LIKE ? OR LOWER(COALESCE(author_name, '')) LIKE ?)";
       const pattern = `%${search}%`;
-      bindings.push(pattern, pattern, pattern, pattern);
+      bindings.push(pattern, pattern, pattern, pattern, pattern);
     }
 
     sql += " ORDER BY updated_at DESC, id DESC LIMIT ?";
@@ -139,12 +142,23 @@ async function handleTrpcProcedure(
 
   if (proc === "articles.get") {
     const slug = typeof input.slug === "string" ? input.slug.trim() : "";
-    if (!slug) return null;
+    if (!slug) return { article: null, related: [] };
     const row = await env.DB.prepare("SELECT * FROM articles WHERE slug = ? LIMIT 1")
       .bind(slug)
       .first<Record<string, unknown>>();
-    if (!row) return null;
-    return rowToArticleDTO(row, 0);
+    if (!row) return { article: null, related: [] };
+    const article = rowToArticleDTO(row, 0);
+
+    const relatedRes = await env.DB.prepare(
+      "SELECT * FROM articles WHERE status = 'published' AND id != ? ORDER BY updated_at DESC, id DESC LIMIT 3"
+    )
+      .bind(row.id)
+      .all();
+    const related = ((relatedRes.results ?? []) as Array<Record<string, unknown>>).map((r, i) =>
+      rowToArticleDTO(r, i + 1)
+    );
+
+    return { article, related };
   }
 
   if (proc === "articles.view") {
@@ -336,10 +350,10 @@ export default {
 
           if (search) {
             conditions.push(
-              "(LOWER(title_en) LIKE ? OR LOWER(COALESCE(title_ps, '')) LIKE ? OR LOWER(COALESCE(title_fa, '')) LIKE ? OR LOWER(category) LIKE ?)"
+              "(LOWER(title_en) LIKE ? OR LOWER(COALESCE(title_ps, '')) LIKE ? OR LOWER(COALESCE(title_fa, '')) LIKE ? OR LOWER(category) LIKE ? OR LOWER(COALESCE(author_name, '')) LIKE ?)"
             );
             const pattern = `%${search}%`;
-            bindings.push(pattern, pattern, pattern, pattern);
+            bindings.push(pattern, pattern, pattern, pattern, pattern);
           }
 
           if (conditions.length > 0) {
@@ -383,6 +397,9 @@ export default {
             subcategory?: string;
             status?: string;
             author_name?: string;
+            author_avatar?: string;
+            author_location?: string;
+            author_bio?: string;
             cover_image?: string;
             slug?: string;
           };
@@ -404,15 +421,20 @@ export default {
           const subcategory = (body.subcategory || "").trim() || null;
           const status = (body.status || "published").trim();
           const authorName = (body.author_name || "Buddha Newsroom").trim();
+          const authorAvatar = (body.author_avatar || "").trim() || null;
+          const authorLocation = (body.author_location || "").trim() || null;
+          const authorBio = (body.author_bio || "").trim() || null;
           const coverImage = (body.cover_image || "/og-fallback.svg").trim();
 
           const insertResult = await env.DB.prepare(
             `INSERT INTO articles (
-              slug, category, subcategory, status, author_name, cover_image,
+              slug, category, subcategory, status,
+              author_name, author_avatar, author_location, author_bio,
+              cover_image,
               title_en, summary_en, content_en,
               title_ps, summary_ps, content_ps,
               title_fa, summary_fa, content_fa
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           )
             .bind(
               slug,
@@ -420,6 +442,9 @@ export default {
               subcategory,
               status,
               authorName,
+              authorAvatar,
+              authorLocation,
+              authorBio,
               coverImage,
               titleEn,
               summaryEn || titleEn,
@@ -483,6 +508,9 @@ export default {
             subcategory?: string;
             status?: string;
             author_name?: string;
+            author_avatar?: string;
+            author_location?: string;
+            author_bio?: string;
             cover_image?: string;
           };
 
@@ -503,6 +531,9 @@ export default {
               subcategory = ?,
               status = ?,
               author_name = ?,
+              author_avatar = ?,
+              author_location = ?,
+              author_bio = ?,
               cover_image = ?,
               title_en = ?,
               summary_en = ?,
@@ -523,6 +554,15 @@ export default {
                 : (existing.subcategory as string | null),
               (body.status ?? existing.status) as string,
               (body.author_name ?? existing.author_name) as string,
+              body.author_avatar !== undefined
+                ? body.author_avatar || null
+                : (existing.author_avatar as string | null),
+              body.author_location !== undefined
+                ? body.author_location || null
+                : (existing.author_location as string | null),
+              body.author_bio !== undefined
+                ? body.author_bio || null
+                : (existing.author_bio as string | null),
               (body.cover_image ?? existing.cover_image) as string,
               (body.title_en ?? existing.title_en) as string,
               (body.summary_en ?? existing.summary_en) as string,

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { getCategory, localePath } from "@shared/news";
 import { useI18n } from "@/contexts/I18nContext";
 import { usePageMeta } from "@/hooks/usePageMeta";
+import { reporterSlugFromName } from "./Reporter";
 import { askBuddhaAI } from "@/lib/ai";
 import {
   articlePath,
@@ -114,6 +115,12 @@ export default function Article() {
   const categoryLabel = categoryName(article.category, locale);
   const subLabel = subcategoryName(article.category, article.subcategory, locale);
   const image = coverImage(article);
+  const reporterAvatar = (article as { authorAvatar?: string | null } | undefined)?.authorAvatar || null;
+  const reporterLocation = (article as { authorLocation?: string | null } | undefined)?.authorLocation || null;
+  const reporterBio =
+    (article as { authorBio?: string | null } | undefined)?.authorBio ||
+    "Reporting for Buddha Media Group across the region.";
+  const reporterHref = localePath(locale, `/reporter/${encodeURIComponent(reporterSlugFromName(article.authorName || "Buddha Newsroom"))}`);
   const initials = article.authorName
     .split(/\s+/)
     .map(part => part[0])
@@ -208,15 +215,27 @@ export default function Article() {
               )}
 
               <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 border-y border-line py-4">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-[0.68rem] font-extrabold text-paper">
-                    {initials || "BMG"}
-                  </span>
+                <Link href={reporterHref} className="group flex items-center gap-2.5">
+                  {reporterAvatar ? (
+                    <img
+                      src={reporterAvatar}
+                      alt={article.authorName}
+                      className="h-9 w-9 rounded-full border border-line object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-[0.68rem] font-extrabold text-paper">
+                      {initials || "BMG"}
+                    </span>
+                  )}
                   <div>
-                    <p className="text-[0.72rem] font-extrabold text-foreground">{article.authorName}</p>
-                    <p className="text-[0.65rem] text-muted-foreground">{t("by")} · BMG</p>
+                    <p className="text-[0.72rem] font-extrabold text-foreground group-hover:text-brand group-hover:underline">
+                      {article.authorName}
+                    </p>
+                    <p className="text-[0.65rem] text-muted-foreground">
+                      {reporterLocation ? `${t("by")} · ${reporterLocation}` : `${t("by")} · BMG`}
+                    </p>
                   </div>
-                </div>
+                </Link>
                 <span className="flex items-center gap-1.5 text-[0.7rem] font-semibold text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" aria-hidden="true" /> {article.readMinutes} {t("minRead")}
                 </span>
@@ -327,15 +346,43 @@ export default function Article() {
 
               <div className="mt-8 rounded-lg border border-line bg-card p-5">
                 <div className="flex items-start gap-4">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-ink text-sm font-extrabold text-paper">
-                    {initials || "BMG"}
-                  </span>
-                  <div>
+                  <Link href={reporterHref} className="shrink-0">
+                    {reporterAvatar ? (
+                      <img
+                        src={reporterAvatar}
+                        alt={article.authorName}
+                        className="h-14 w-14 rounded-full border border-line object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-ink text-sm font-extrabold text-paper">
+                        {initials || "BMG"}
+                      </span>
+                    )}
+                  </Link>
+                  <div className="flex-1">
                     <p className="kicker text-[0.62rem] text-brand">{t("by")}</p>
-                    <p className="font-display text-lg font-semibold text-foreground">{article.authorName}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                      Reporting for Buddha Media Group. Corrections and tips:{" "}
-                      <Link href={pagePath(locale, "contact")} className="link-underline text-teal">{t("contactUs")}</Link>.
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <Link
+                        href={reporterHref}
+                        className="font-display text-lg font-semibold text-foreground hover:text-brand hover:underline"
+                      >
+                        {article.authorName}
+                      </Link>
+                      {reporterLocation && (
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          · {reporterLocation}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                      {reporterBio}
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      <Link href={reporterHref} className="link-underline font-semibold text-brand">
+                        View full biography & reports →
+                      </Link>
+                      {" · "}
+                      <Link href={pagePath(locale, "contact")} className="link-underline text-teal">{t("contactUs")}</Link>
                     </p>
                   </div>
                 </div>

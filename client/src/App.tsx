@@ -8,6 +8,7 @@ import { I18nProvider } from "./contexts/I18nContext";
 import { PublicLayout } from "./components/site/PublicLayout";
 import Home from "./pages/Home";
 import Article from "./pages/Article";
+import Reporter from "./pages/Reporter";
 import { NotFound } from "./pages/NotFound";
 import AdminLogin from "./pages/admin/AdminLogin";
 import { DEFAULT_LOCALE, isLocale } from "@shared/news";
@@ -90,6 +91,7 @@ function Router() {
 
         <Route path="/:locale" component={() => <Locale><Home /></Locale>} />
         <Route path="/:locale/article/:slug" component={() => <Locale><Article /></Locale>} />
+        <Route path="/:locale/reporter/:slug" component={() => <Locale><Reporter /></Locale>} />
         <Route path="/:locale/category/:key" component={() => <Locale><Category /></Locale>} />
         <Route path="/:locale/search" component={() => <Locale><Search /></Locale>} />
         <Route path="/:locale/about" component={() => <Locale><About /></Locale>} />
