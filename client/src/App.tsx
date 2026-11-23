@@ -9,6 +9,7 @@ import { PublicLayout } from "./components/site/PublicLayout";
 import Home from "./pages/Home";
 import Article from "./pages/Article";
 import { NotFound } from "./pages/NotFound";
+import AdminLogin from "./pages/admin/AdminLogin";
 import { DEFAULT_LOCALE, isLocale } from "@shared/news";
 
 const AdminLayout = lazy(() =>
@@ -22,7 +23,6 @@ const TipLine = lazy(() => import("./pages/TipLine"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const EditorialPolicy = lazy(() => import("./pages/EditorialPolicy"));
-const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Articles = lazy(() => import("./pages/admin/Articles"));
 const ArticleEditor = lazy(() => import("./pages/admin/ArticleEditor"));
@@ -77,6 +77,7 @@ function Router() {
         <Route path="/" component={LocaleHomeRedirect} />
 
         <Route path="/admin" component={AdminLogin} />
+        <Route path="/:locale/admin" component={AdminLogin} />
         <Route path="/admin/dashboard" component={() => <Admin><Dashboard /></Admin>} />
         <Route path="/admin/articles" component={() => <Admin><Articles /></Admin>} />
         <Route path="/admin/articles/new" component={() => <Admin><Articles /></Admin>} />
