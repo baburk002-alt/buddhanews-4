@@ -121,6 +121,12 @@ export default function Article() {
     (article as { authorBio?: string | null } | undefined)?.authorBio ||
     "Reporting for Buddha Media Group across the region.";
   const reporterHref = localePath(locale, `/reporter/${encodeURIComponent(reporterSlugFromName(article.authorName || "Buddha Newsroom"))}`);
+  const reporterAvatar = (article as { authorAvatar?: string | null } | undefined)?.authorAvatar || null;
+  const reporterLocation = (article as { authorLocation?: string | null } | undefined)?.authorLocation || null;
+  const reporterBio =
+    (article as { authorBio?: string | null } | undefined)?.authorBio ||
+    "Reporting for Buddha Media Group across the region.";
+  const reporterHref = localePath(locale, `/reporter/${encodeURIComponent(reporterSlugFromName(article.authorName || "Buddha Newsroom"))}`);
   const initials = article.authorName
     .split(/\s+/)
     .map(part => part[0])
