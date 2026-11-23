@@ -1,0 +1,531 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Self-hosted typefaces. Serving them from this origin keeps the Content
+ * Security Policy strict (no fonts.googleapis.com / fonts.gstatic.com), avoids a
+ * third-party request per visitor and makes the site work behind firewalls that
+ * block Google. Files are the latin subsets of Fraunces and Manrope plus the
+ * arabic and latin subsets of Vazirmatn, all variable weight.
+ */
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/fraunces-latin-var.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/manrope-latin-var.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/vazirmatn-arabic-var.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/vazirmatn-latin-var.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-arabic: "Vazirmatn", "Noto Naskh Arabic", Tahoma, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-teal: var(--teal);
+  --color-line: var(--line);
+  --radius-sm: calc(var(--radius) - 3px);
+  --radius-md: calc(var(--radius) - 1px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.55rem;
+  --background: #f6f1e8;
+  --foreground: #151a20;
+  --card: #fffdf8;
+  --card-foreground: #151a20;
+  --popover: #fffdf8;
+  --popover-foreground: #151a20;
+  --primary: #0e5a57;
+  --primary-foreground: #fffdf8;
+  --secondary: #ece4d6;
+  --secondary-foreground: #23282f;
+  --muted: #efe8dc;
+  --muted-foreground: #6b6257;
+  --accent: #f0e6d4;
+  --accent-foreground: #151a20;
+  --destructive: #b3392f;
+  --destructive-foreground: #ffffff;
+  --border: #e0d6c4;
+  --input: #e0d6c4;
+  --ring: #e9a23b;
+  --brand: #a35c00;
+  --brand-foreground: #fffdf8;
+  --ink: #151a20;
+  --paper: #f6f1e8;
+  --teal: #0e5a57;
+  --line: #e0d6c4;
+}
+
+.dark {
+  --background: #0d1116;
+  --foreground: #f2ede4;
+  --card: #141a20;
+  --card-foreground: #f2ede4;
+  --popover: #141a20;
+  --popover-foreground: #f2ede4;
+  --primary: #4fb3aa;
+  --primary-foreground: #08100f;
+  --secondary: #1b232b;
+  --secondary-foreground: #e7e1d6;
+  --muted: #1a222a;
+  --muted-foreground: #a7b0ba;
+  --accent: #202a33;
+  --accent-foreground: #f2ede4;
+  --destructive: #e06a5f;
+  --destructive-foreground: #1a0a08;
+  --border: #2a333d;
+  --input: #2a333d;
+  --ring: #f0b24f;
+  --brand: #f0b24f;
+  --brand-foreground: #1c1305;
+  --ink: #f2ede4;
+  --paper: #0d1116;
+  --teal: #4fb3aa;
+  --line: #2a333d;
+}
+
+/* The footer is dark in both themes; use colors that contrast with its surface. */
+.news-footer {
+  --brand: #f0b24f;
+  --brand-foreground: #1c1305;
+  --muted-foreground: #a7b0ba;
+  --teal: #8cd5cb;
+  --destructive: #ff9389;
+}
+.news-footer [data-newsletter-feedback] {
+  --foreground: #f6f1e8;
+  --muted: #1a222a;
+}
+html:not(.dark) .news-footer input::placeholder {
+  color: #6b6257;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+html[dir="rtl"] body {
+  font-family: var(--font-arabic);
+  line-height: 1.9;
+}
+
+::selection {
+  background: var(--brand);
+  color: var(--brand-foreground);
+}
+
+:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  inset-inline-start: 12px;
+  top: -100px;
+  z-index: 200;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 700;
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: 12px;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+html[dir="rtl"] .font-display {
+  font-family: var(--font-arabic);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.container-news {
+  width: 100%;
+  max-width: 1320px;
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 3.6vw, 2.75rem);
+}
+
+.kicker {
+  font-size: 0.71rem;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+html[dir="rtl"] .kicker {
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.8rem;
+}
+
+.headline {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.04;
+}
+html[dir="rtl"] .headline {
+  font-family: var(--font-arabic);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.4;
+}
+
+.rule-t {
+  border-top: 1px solid var(--line);
+}
+
+.link-underline {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  text-decoration-color: color-mix(in srgb, var(--brand) 65%, transparent);
+  transition: text-decoration-color 0.2s ease, color 0.2s ease;
+}
+.link-underline:hover {
+  color: var(--brand);
+  text-decoration-color: var(--brand);
+}
+
+.card-lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.card-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 42px -24px rgba(21, 26, 32, 0.45);
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--line));
+}
+
+.image-zoom img {
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.image-zoom:hover img {
+  transform: scale(1.045);
+}
+
+/* Thin editorial texture. Static, low opacity, never intercepts clicks. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.022;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.dark body::after {
+  opacity: 0.04;
+  mix-blend-mode: screen;
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 46s linear infinite;
+}
+.marquee:hover .marquee-track,
+.marquee:focus-within .marquee-track {
+  animation-play-state: paused;
+}
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+html[dir="rtl"] .marquee-track {
+  animation-direction: reverse;
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.9s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--muted);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--card) 65%, transparent), transparent);
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Long-form article typography */
+.prose-news {
+  font-size: 1.075rem;
+  line-height: 1.82;
+  color: var(--foreground);
+}
+.prose-news > * + * {
+  margin-top: 1.35em;
+}
+.prose-news h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.6vw, 1.9rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-top: 2.2em;
+  margin-bottom: 0.7em;
+}
+html[dir="rtl"] .prose-news h2 {
+  font-family: var(--font-arabic);
+  letter-spacing: 0;
+}
+.prose-news h3 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-top: 1.8em;
+}
+.prose-news p {
+  margin: 0;
+}
+.prose-news p + p {
+  margin-top: 1.35em;
+}
+.prose-news a {
+  color: var(--teal);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: color-mix(in srgb, var(--brand) 70%, transparent);
+}
+.prose-news a:hover {
+  color: var(--brand);
+}
+.prose-news strong {
+  font-weight: 800;
+}
+.prose-news blockquote {
+  border-inline-start: 3px solid var(--brand);
+  padding-inline-start: 1.2rem;
+  margin-inline: 0;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+html[dir="rtl"] .prose-news blockquote {
+  font-family: var(--font-arabic);
+}
+.prose-news ul,
+.prose-news ol {
+  padding-inline-start: 1.4rem;
+  display: grid;
+  gap: 0.55rem;
+}
+.prose-news ul {
+  list-style: disc;
+}
+.prose-news ol {
+  list-style: decimal;
+}
+.prose-news li::marker {
+  color: var(--brand);
+}
+.prose-news img {
+  border-radius: var(--radius);
+  max-width: 100%;
+  height: auto;
+}
+.prose-news hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin-block: 2.5rem;
+}
+.prose-news code {
+  background: var(--muted);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+/* Utility for visually hiding labels while keeping them for screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.admin-shell {
+  background:
+    radial-gradient(1200px 600px at 100% -10%, color-mix(in srgb, var(--brand) 8%, transparent), transparent 60%),
+    var(--background);
+  min-height: 100vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .marquee-track {
+    animation: none;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
+
+/* Scroll reveal for story cards (see lib/useReveal.ts). An animation, not a
+   transition, so the cards' own hover transitions are left untouched. */
+[data-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(24px);
+}
+[data-reveal="pending"]:focus-within {
+  opacity: 1;
+  transform: none;
+}
+[data-reveal="shown"] {
+  animation: reveal-in 0.5s ease-out var(--reveal-delay, 0s) backwards;
+}
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* iOS Safari zooms the page on focus when a text control's font-size is < 16px.
+   Keep text fields at 16px on touch devices so forms do not jump/zoom. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Table headers default to the UA's centered alignment, which sat over start-aligned cells
+   (LTR and RTL). Inherit from the table instead, as Tailwind v3 preflight did. */
+@layer base {
+  th {
+    text-align: inherit;
+  }
+}

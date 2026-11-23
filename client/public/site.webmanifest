@@ -1,0 +1,17 @@
+{
+  "name": "Buddha News",
+  "short_name": "Buddha News",
+  "description": "Independent trilingual reporting from Afghanistan, Central and South Asia.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f1e8",
+  "theme_color": "#151a20",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "routes": [
+    { "path": "/", "title": "Home" },
+    { "path": "/article/:slug", "title": "Article" },
+    { "path": "/category/:key", "title": "Category" },
+    { "path": "/search", "title": "Search" },
+    { "path": "/about", "title": "About" },
+    { "path": "/contact", "title": "Contact" },
+    { "path": "/tip-line", "title": "Secure Tip Line" },
+    { "path": "/privacy", "title": "Privacy" },
+    { "path": "/terms", "title": "Terms" },
+    { "path": "/editorial-policy", "title": "Editorial Policy" },
+    { "path": "/admin", "title": "Newsroom Login" },
+    { "path": "/admin/dashboard", "title": "Newsroom Dashboard" },
+    { "path": "/admin/articles", "title": "Stories" },
+    { "path": "/admin/articles/new", "title": "New Story" },
+    { "path": "/admin/articles/:id", "title": "Edit Story" },
+    { "path": "/admin/audit", "title": "Audit Log" },
+    { "path": "/admin/media", "title": "Media" },
+    { "path": "/admin/messages", "title": "Messages" },
+    { "path": "/admin/subscribers", "title": "Subscribers" },
+    { "path": "/admin/settings", "title": "Settings" }
+  ]
+}
