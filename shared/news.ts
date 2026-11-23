@@ -66,14 +66,6 @@ export const CATEGORIES: Category[] = [
       { key: "immigration", label: { en: "Immigration", ps: "مهاجرت", fa: "مهاجرت" } },
       { key: "media", label: { en: "Media", ps: "رسنۍ", fa: "رسانه‌ها" } },
       { key: "politics", label: { en: "Politics", ps: "سیاست", fa: "سیاست" } },
-      {
-        key: "taliban-rift",
-        label: {
-          en: "Taliban Internal Rift",
-          ps: "د طالبانو کورني اختلاف",
-          fa: "اختلافات درونی طالبان",
-        },
-      },
       { key: "women", label: { en: "Women", ps: "ښځې", fa: "زنان" } },
       {
         key: "violations",
