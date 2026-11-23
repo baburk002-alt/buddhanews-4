@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { useI18n } from "@/contexts/I18nContext";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { pagePath } from "@/lib/news";
-import { trpc } from "@/lib/trpc";
 import { PageHero } from "@/components/site/PageHero";
 import { TurnstileWidget, turnstileSiteKey } from "@/components/site/TurnstileWidget";
 
@@ -15,42 +14,69 @@ export default function Contact() {
   const [engaged, setEngaged] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [resetSignal, setResetSignal] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   usePageMeta({
     title: "Contact the newsroom — Buddha News",
     description: "Contact Buddha Media Group with story tips, corrections, partnerships or privacy questions.",
   });
-  const settingsQuery = trpc.settings.public.useQuery(undefined, { staleTime: 300_000 });
-  const contactEmail = settingsQuery.data?.contactEmail?.trim() ?? "";
-  const submit = trpc.contact.submit.useMutation({
-    onSuccess: () => {
-      setSent(true);
-      toast.success(t("messageSent"));
-    },
-  });
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  const contactEmail = "";
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setErrorMessage(null);
+
     const form = event.currentTarget;
     const data = new FormData(form);
     if (turnstileSiteKey() && !token) return;
-    // The hidden `website` field is sent as-is: the SERVER decides what a
-    // filled honeypot means, so scripts that skip this page are caught too.
-    submit.mutate(
-      {
-        name: String(data.get("name") ?? ""),
-        email: String(data.get("email") ?? ""),
-        subject: String(data.get("subject") ?? ""),
-        message: String(data.get("message") ?? ""),
-        locale,
-        website: String(data.get("website") ?? ""),
-        turnstileToken: token ?? undefined,
-      },
-      {
-        onSuccess: () => form.reset(),
-        // A Turnstile token is single-use: always ask for a fresh one.
-        onSettled: () => setResetSignal(value => value + 1),
+
+    const honeypot = String(data.get("website") ?? "").trim();
+    if (honeypot) {
+      setSent(true);
+      form.reset();
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: String(data.get("name") ?? ""),
+          email: String(data.get("email") ?? ""),
+          subject: String(data.get("subject") ?? ""),
+          message: String(data.get("message") ?? ""),
+          locale,
+          turnstileToken: token ?? undefined,
+        }),
+      });
+
+      const result = (await response.json()) as {
+        success?: boolean;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || t("messageError"));
       }
-    );
+
+      setSent(true);
+      form.reset();
+      toast.success(result.message || t("messageSent"));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t("messageError");
+      setErrorMessage(msg);
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+      setResetSignal((value) => value + 1);
+    }
   }
 
   return (
@@ -137,9 +163,9 @@ export default function Contact() {
               {engaged && (
                 <TurnstileWidget onToken={setToken} resetSignal={resetSignal} language={locale} />
               )}
-              {submit.error && (
+              {errorMessage && (
                 <p className="text-xs font-semibold text-destructive" role="alert">
-                  {submit.error.message || t("messageError")}
+                  {errorMessage}
                 </p>
               )}
               <div className="flex items-center justify-between gap-3">
@@ -149,10 +175,10 @@ export default function Contact() {
                 </p>
                 <button
                   type="submit"
-                  disabled={submit.isPending || (Boolean(turnstileSiteKey()) && !token)}
+                  disabled={isSubmitting || (Boolean(turnstileSiteKey()) && !token)}
                   className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md bg-ink px-5 text-sm font-extrabold text-paper disabled:opacity-60"
                 >
-                  {submit.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {t("sendMessage")}
                 </button>
               </div>
