@@ -1,12 +1,21 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "buddhanews-4",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-11-19",
   "observability": {
     "enabled": true
   },
   "assets": {
     "directory": "./dist/public",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "buddhanews-db",
+      "database_id": "13e2a9c0-8ff5-411c-9559-2f2915086c59"
+    }
+  ]
 }
