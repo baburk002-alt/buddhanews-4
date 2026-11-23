@@ -11,11 +11,6 @@ import Article from "./pages/Article";
 import { NotFound } from "./pages/NotFound";
 import { DEFAULT_LOCALE, isLocale } from "@shared/news";
 
-// Keep the front page and story page in the initial bundle for fast reading.
-// Everything else is split so the newsroom, charts and secondary pages do not
-// delay the first paint for a reader.
-// The admin shell (sidebar, role gate, draft cleanup) is also split off, so
-// public readers never download newsroom code.
 const AdminLayout = lazy(() =>
   import("./components/admin/AdminLayout").then(module => ({ default: module.AdminLayout }))
 );
@@ -45,11 +40,6 @@ function Admin({ children }: { children: React.ReactNode }) {
   return <AdminLayout>{children}</AdminLayout>;
 }
 
-/**
- * Public pages live under a language segment (`/en/`, `/ps/`, `/fa/`). The
- * server already rejects unknown segments with a real 404, but the client
- * repeats the check so a hand-edited URL never renders the wrong language.
- */
 function Locale({ children }: { children: React.ReactNode }) {
   const params = useParams<{ locale?: string }>();
   if (!params.locale || !isLocale(params.locale)) {
@@ -72,10 +62,6 @@ function RouteFallback() {
   );
 }
 
-/**
- * The server redirects `/` to the reader's preferred language. This is the
- * client-side fallback for navigations that happen without a page load.
- */
 function LocaleHomeRedirect() {
   const [, setLocation] = useLocation();
   useEffect(() => {
@@ -90,6 +76,17 @@ function Router() {
       <Switch>
         <Route path="/" component={LocaleHomeRedirect} />
 
+        <Route path="/admin" component={AdminLogin} />
+        <Route path="/admin/dashboard" component={() => <Admin><Dashboard /></Admin>} />
+        <Route path="/admin/articles" component={() => <Admin><Articles /></Admin>} />
+        <Route path="/admin/articles/new" component={() => <Admin><Articles /></Admin>} />
+        <Route path="/admin/articles/:id" component={() => <Admin><ArticleEditor /></Admin>} />
+        <Route path="/admin/audit" component={() => <Admin><Audit /></Admin>} />
+        <Route path="/admin/media" component={() => <Admin><Media /></Admin>} />
+        <Route path="/admin/messages" component={() => <Admin><Messages /></Admin>} />
+        <Route path="/admin/subscribers" component={() => <Admin><Subscribers /></Admin>} />
+        <Route path="/admin/settings" component={() => <Admin><Settings /></Admin>} />
+
         <Route path="/:locale" component={() => <Locale><Home /></Locale>} />
         <Route path="/:locale/article/:slug" component={() => <Locale><Article /></Locale>} />
         <Route path="/:locale/category/:key" component={() => <Locale><Category /></Locale>} />
@@ -103,17 +100,6 @@ function Router() {
           path="/:locale/editorial-policy"
           component={() => <Locale><EditorialPolicy /></Locale>}
         />
-
-        <Route path="/admin" component={AdminLogin} />
-        <Route path="/admin/dashboard" component={() => <Admin><Dashboard /></Admin>} />
-        <Route path="/admin/articles" component={() => <Admin><Articles /></Admin>} />
-        <Route path="/admin/articles/new" component={() => <Admin><ArticleEditor /></Admin>} />
-        <Route path="/admin/articles/:id" component={() => <Admin><ArticleEditor /></Admin>} />
-        <Route path="/admin/audit" component={() => <Admin><Audit /></Admin>} />
-        <Route path="/admin/media" component={() => <Admin><Media /></Admin>} />
-        <Route path="/admin/messages" component={() => <Admin><Messages /></Admin>} />
-        <Route path="/admin/subscribers" component={() => <Admin><Subscribers /></Admin>} />
-        <Route path="/admin/settings" component={() => <Admin><Settings /></Admin>} />
 
         <Route path="/404" component={() => <Public><NotFound /></Public>} />
         <Route component={() => <Public><NotFound /></Public>} />
