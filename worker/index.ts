@@ -4,6 +4,8 @@ export interface Env {
   ADMIN_SECRET?: string;
   CHIEF_EDITOR_SECRET?: string;
   REPORTER_SECRET?: string;
+  RESEND_API_KEY?: string;
+  MAIL_FROM?: string;
 }
 
 const corsHeaders = {
@@ -14,7 +16,7 @@ const corsHeaders = {
 
 type StaffRole = "owner" | "chief_editor" | "reporter";
 
-function resolveStaffRole(request: Request, env: Env): StaffRole | null {
+function resolveStaffRoleSync(request: Request, env: Env): StaffRole | null {
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
   if (!token) return null;
@@ -30,7 +32,53 @@ function resolveStaffRole(request: Request, env: Env): StaffRole | null {
 }
 
 function isAuthorized(request: Request, env: Env): boolean {
-  return resolveStaffRole(request, env) !== null;
+  return await resolveStaffRoleAsync(request, env) !== null;
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const data = new TextEncoder().encode("bn_salt_v1:" + password);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function generateSixDigitCode(): string {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return String(100000 + (arr[0] % 900000));
+}
+
+async function sendStaffEmail(env: Env, to: string, subject: string, text: string): Promise<{ sent: boolean }> {
+  const apiKey = (env.RESEND_API_KEY || "").trim();
+  const from = (env.MAIL_FROM || "Buddha News <noreply@buddhanews.org>").trim();
+  if (!apiKey) return { sent: false };
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: [to], subject, text }),
+    });
+    return { sent: res.ok };
+  } catch {
+    return { sent: false };
+  }
+}
+
+async function resolveStaffRoleAsync(request: Request, env: Env): Promise<StaffRole | null> {
+  const syncRole = resolveStaffRoleSync(request, env);
+  if (syncRole) return syncRole;
+  const authHeader = request.headers.get("Authorization") || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!token.startsWith("staff:")) return null;
+  const parts = token.split(":");
+  if (parts.length !== 3) return null;
+  const email = decodeURIComponent(parts[1] || "").toLowerCase().trim();
+  const passHash = parts[2] || "";
+  if (!email || !passHash) return null;
+  const user = await env.DB.prepare(
+    "SELECT role, password_hash, active, verified FROM staff_users WHERE LOWER(email) = ? LIMIT 1"
+  ).bind(email).first<{ role: StaffRole; password_hash: string | null; active: number; verified: number }>();
+  if (!user || !user.active || !user.verified || !user.password_hash || user.password_hash !== passHash) return null;
+  return user.role;
 }
 
 function slugify(input: string): string {
@@ -307,6 +355,122 @@ export default {
       );
     }
 
+    if (url.pathname === "/api/staff/login" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as { email?: string; password?: string };
+        const email = (body.email || "").toLowerCase().trim();
+        const password = (body.password || "").trim();
+        if (!email || !password) {
+          return Response.json({ success: false, error: "Email and password are required." }, { status: 400, headers: corsHeaders });
+        }
+        const user = await env.DB.prepare(
+          "SELECT id, name, email, role, password_hash, verified, active FROM staff_users WHERE LOWER(email) = ? LIMIT 1"
+        ).bind(email).first<{ id: number; name: string; email: string; role: StaffRole; password_hash: string | null; verified: number; active: number }>();
+        if (!user || !user.active) {
+          return Response.json({ success: false, error: "Account not found or inactive." }, { status: 401, headers: corsHeaders });
+        }
+        if (!user.verified || !user.password_hash) {
+          return Response.json({ success: false, needsVerification: true, error: "Email not verified yet. Request a code and set your password first." }, { status: 403, headers: corsHeaders });
+        }
+        const passHash = await hashPassword(password);
+        if (passHash !== user.password_hash) {
+          return Response.json({ success: false, error: "Invalid email or password." }, { status: 401, headers: corsHeaders });
+        }
+        const token = "staff:" + encodeURIComponent(user.email) + ":" + passHash;
+        return Response.json({ success: true, token, role: user.role, name: user.name, email: user.email }, { status: 200, headers: corsHeaders });
+      } catch {
+        return Response.json({ success: false, error: "Login error occurred." }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+    if (url.pathname === "/api/staff/request-code" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as { email?: string };
+        const email = (body.email || "").toLowerCase().trim();
+        if (!email) {
+          return Response.json({ success: false, error: "Official email is required." }, { status: 400, headers: corsHeaders });
+        }
+        const user = await env.DB.prepare(
+          "SELECT id, name, active FROM staff_users WHERE LOWER(email) = ? LIMIT 1"
+        ).bind(email).first<{ id: number; name: string; active: number }>();
+        if (!user || !user.active) {
+          return Response.json({ success: false, error: "This email is not registered by the owner." }, { status: 404, headers: corsHeaders });
+        }
+        const code = generateSixDigitCode();
+        const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        await env.DB.prepare(
+          "UPDATE staff_users SET verification_code = ?, code_expires_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        ).bind(code, expiresAt, user.id).run();
+        const emailRes = await sendStaffEmail(env, email, "Buddha News — Verification & Password Reset Code", "Hello " + user.name + ",\n\nYour verification code is: " + code + "\nExpires in 30 minutes.");
+        return Response.json({ success: true, emailSent: emailRes.sent, message: emailRes.sent ? "Verification code sent to your official email." : "Verification code generated. Get the code from the Owner if email is not set up yet." }, { status: 200, headers: corsHeaders });
+      } catch {
+        return Response.json({ success: false, error: "Failed to send verification code." }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+    if (url.pathname === "/api/staff/reset-password" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as { email?: string; code?: string; newPassword?: string };
+        const email = (body.email || "").toLowerCase().trim();
+        const code = (body.code || "").trim();
+        const newPassword = (body.newPassword || "").trim();
+        if (!email || !code || newPassword.length < 8) {
+          return Response.json({ success: false, error: "Email, 6-digit code, and 8+ char password are required." }, { status: 400, headers: corsHeaders });
+        }
+        const user = await env.DB.prepare(
+          "SELECT id, verification_code, code_expires_at, active FROM staff_users WHERE LOWER(email) = ? LIMIT 1"
+        ).bind(email).first<{ id: number; verification_code: string | null; code_expires_at: string | null; active: number }>();
+        if (!user || !user.active || !user.verification_code || user.verification_code !== code) {
+          return Response.json({ success: false, error: "Invalid verification code." }, { status: 400, headers: corsHeaders });
+        }
+        if (user.code_expires_at && new Date(user.code_expires_at).getTime() < Date.now()) {
+          return Response.json({ success: false, error: "Verification code expired." }, { status: 400, headers: corsHeaders });
+        }
+        const passHash = await hashPassword(newPassword);
+        await env.DB.prepare(
+          "UPDATE staff_users SET password_hash = ?, verified = 1, verification_code = NULL, code_expires_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        ).bind(passHash, user.id).run();
+        return Response.json({ success: true, message: "Email verified and new password saved. You can sign in now." }, { status: 200, headers: corsHeaders });
+      } catch {
+        return Response.json({ success: false, error: "Failed to reset password." }, { status: 500, headers: corsHeaders });
+      }
+    }
+
+    if (url.pathname === "/api/staff/users") {
+      const role = await resolveStaffRoleAsync(request, env);
+      if (role !== "owner") {
+        return Response.json({ success: false, error: "Only the Owner can manage staff accounts." }, { status: 403, headers: corsHeaders });
+      }
+      if (request.method === "GET") {
+        const res = await env.DB.prepare("SELECT id, name, email, role, verified, active, verification_code, created_at FROM staff_users ORDER BY id DESC").all();
+        return Response.json({ success: true, users: res.results ?? [] }, { status: 200, headers: corsHeaders });
+      }
+      if (request.method === "POST") {
+        const body = (await request.json()) as { name?: string; email?: string; role?: StaffRole };
+        const name = (body.name || "").trim();
+        const email = (body.email || "").toLowerCase().trim();
+        const staffRole: StaffRole = body.role === "chief_editor" || body.role === "owner" ? body.role : "reporter";
+        if (!name || !email) {
+          return Response.json({ success: false, error: "Name and official email are required." }, { status: 400, headers: corsHeaders });
+        }
+        const code = generateSixDigitCode();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        await env.DB.prepare(
+          "INSERT INTO staff_users (name, email, role, verified, active, verification_code, code_expires_at) VALUES (?, ?, ?, 0, 1, ?, ?) ON CONFLICT(email) DO UPDATE SET name = excluded.name, role = excluded.role, active = 1, verification_code = excluded.verification_code, code_expires_at = excluded.code_expires_at, updated_at = CURRENT_TIMESTAMP"
+        ).bind(name, email, staffRole, code, expiresAt).run();
+        const emailRes = await sendStaffEmail(env, email, "Buddha News — Official Staff Account Verification", "Hello " + name + ",\n\nRole: " + staffRole + "\nVerification code: " + code);
+        return Response.json({ success: true, code, emailSent: emailRes.sent, message: "Staff user saved." }, { status: 201, headers: corsHeaders });
+      }
+      if (request.method === "DELETE") {
+        const id = Number(url.searchParams.get("id") || 0);
+        if (!id) {
+          return Response.json({ success: false, error: "User ID is required." }, { status: 400, headers: corsHeaders });
+        }
+        await env.DB.prepare("DELETE FROM staff_users WHERE id = ?").bind(id).run();
+        return Response.json({ success: true, message: "Staff user removed." }, { status: 200, headers: corsHeaders });
+      }
+    }
+
     if (url.pathname === "/api/admin/login") {
       if (request.method === "POST") {
         try {
@@ -409,7 +573,7 @@ export default {
       }
 
       if (request.method === "POST") {
-        const role = resolveStaffRole(request, env);
+        const role = await resolveStaffRoleAsync(request, env);
         if (!role) {
           return Response.json(
             { success: false, error: "Unauthorized" },
@@ -525,7 +689,7 @@ export default {
       const id = Number(articleMatch[1]);
 
       if (request.method === "PUT") {
-        const role = resolveStaffRole(request, env);
+        const role = await resolveStaffRoleAsync(request, env);
         if (!role || role === "reporter") {
           return Response.json(
             { success: false, error: "یوازې Chief Editor یا Owner راپورونه سمولی او تصویبولی شي." },
@@ -642,7 +806,7 @@ export default {
       }
 
       if (request.method === "DELETE") {
-        const role = resolveStaffRole(request, env);
+        const role = await resolveStaffRoleAsync(request, env);
         if (!role || role === "reporter") {
           return Response.json(
             { success: false, error: "یوازې Chief Editor یا Owner راپورونه لرې کولی شي." },
