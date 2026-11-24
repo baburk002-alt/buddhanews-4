@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Save, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { StaffAccountsPanel } from "@/components/admin/StaffAccountsPanel";
 import { AdminPageHeader } from "@/components/admin/AdminUI";
 
 const FIELDS: Array<{

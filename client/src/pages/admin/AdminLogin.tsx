@@ -1,142 +1,306 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { ArrowRight, KeyRound, Loader2, ShieldCheck } from "lucide-react";
-import { useLocation } from "wouter";
-import { usePageMeta } from "@/hooks/usePageMeta";
-import { LotusMark } from "@/components/site/Logo";
-import { getAdminToken, loginWithSecret } from "@/lib/adminAuth";
+import { useState, type FormEvent } from "react";
+import { KeyRound, Lock, Mail, ShieldCheck } from "lucide-react";
+import { useI18n } from "@/contexts/I18nContext";
+import {
+  loginWithSecret,
+  loginWithStaffEmail,
+  requestStaffCode,
+  resetStaffPassword,
+} from "@/lib/adminAuth";
 
-export default function AdminLogin() {
-const [, navigate] = useLocation();
-const [password, setPassword] = useState("");
-const [loading, setLoading] = useState(false);
-const [error, setError] = useState<string | null>(null);
-
-usePageMeta({
-title: "Newsroom login — Buddha News",
-description: "Protected Buddha News editorial access.",
-noindex: true,
-});
-
-useEffect(() => {
-if (getAdminToken()) {
-  navigate("/admin/articles", { replace: true });
-}
-}, [navigate]);
-
-async function onSubmit(event: FormEvent<HTMLFormElement>) {
-event.preventDefault();
-setError(null);
-if (!password.trim()) {
-  setError("مهرباني وکړئ اډمین پاسورډ ولیکئ.");
-  return;
+interface AdminLoginProps {
+  onSuccess?: () => void;
 }
 
-setLoading(true);
-try {
-  const result = await loginWithSecret(password.trim());
-  if (!result.ok) {
-    setError(result.error || "پاسورډ سم نه دی.");
-    return;
+export default function AdminLogin({ onSuccess }: AdminLoginProps) {
+  const { t } = useI18n();
+  const [mode, setMode] = useState<"email" | "secret" | "reset">("email");
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
+  const [submitting, setSubmitting] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  async function handleEmailLogin(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    if (!email.trim() || !password.trim()) {
+      setError("مهرباني وکړئ رسمي ایمیل او پاسورډ ولیکئ.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await loginWithStaffEmail(email.trim(), password.trim());
+      if (!res.ok) {
+        setError(res.error || "ایمیل یا پاسورډ سم نه دی.");
+        if (res.needsVerification) {
+          setMode("reset");
+        }
+        return;
+      }
+      onSuccess?.();
+    } catch {
+      setError("د ننوتلو پر مهال د شبکې ستونزه راغله.");
+    } finally {
+      setSubmitting(false);
+    }
   }
-  navigate("/admin/articles", { replace: true });
-} catch {
-  setError("د سرور سره په اړیکه کې ستونزه راغله.");
-} finally {
-  setLoading(false);
-}
-}
 
-return (
-<div className="grid min-h-screen bg-background lg:grid-cols-[1.05fr_0.95fr]">
-  <section className="relative hidden overflow-hidden bg-[#151a20] p-10 text-[#f6f1e8] lg:flex lg:flex-col lg:justify-between">
-    <div
-      className="pointer-events-none absolute inset-0 opacity-70"
-      style={{
-        background:
-          "radial-gradient(600px 420px at 20% 20%, rgba(233,162,59,0.18), transparent 65%), radial-gradient(500px 400px at 90% 90%, rgba(79,179,170,0.18), transparent 65%)",
-      }}
-    />
-    <div className="relative flex items-center gap-3">
-      <LotusMark inverted className="h-11 w-11" />
-      <div>
-        <p className="font-display text-2xl font-semibold leading-none">Buddha News</p>
-        <p className="mt-1 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-brand">Buddha Media Group</p>
-      </div>
-    </div>
-    <div className="relative max-w-lg">
-      <p className="kicker mb-4 text-brand">The newsroom</p>
-      <h1 className="font-display text-[clamp(2.4rem,4.5vw,4rem)] font-semibold leading-[1.05]">
-        Publish carefully. Protect the record.
-      </h1>
-      <p className="mt-4 text-sm leading-relaxed text-[#a7b0ba]">
-        Manage stories directly with Cloudflare D1. Add new reporting, edit existing articles,
-        or remove outdated stories in one place.
-      </p>
-      <div className="mt-8 grid gap-3">
-        {[
-          { icon: KeyRound, text: "Protected by your Cloudflare Worker ADMIN_SECRET" },
-          { icon: ShieldCheck, text: "Stored directly in Cloudflare D1 database" },
-        ].map(item => (
-          <div key={item.text} className="flex items-center gap-3 text-sm text-[#f6f1e8]/80">
-            <item.icon className="h-4 w-4 text-brand" /> {item.text}
+  async function handleSecretLogin(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    if (!password.trim()) {
+      setError("مهرباني وکړئ پټ کوډ (Secret) ولیکئ.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await loginWithSecret(password.trim());
+      if (!res.ok) {
+        setError(res.error || "پاسورډ سم نه دی.");
+        return;
+      }
+      onSuccess?.();
+    } catch {
+      setError("د ننوتلو پر مهال د شبکې ستونزه راغله.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSendCode() {
+    setError(null);
+    setInfo(null);
+    if (!email.trim()) {
+      setError("لومړی خپل رسمي ایمیل ولیکئ.");
+      return;
+    }
+    setSendingCode(true);
+    try {
+      const res = await requestStaffCode(email.trim());
+      if (!res.ok) {
+        setError(res.error || "د کوډ په لېږلو کې ستونزه راغله.");
+        return;
+      }
+      setInfo(res.message || "د تایید کوډ واستول شو.");
+    } catch {
+      setError("د کوډ په لېږلو کې ستونزه راغله.");
+    } finally {
+      setSendingCode(false);
+    }
+  }
+
+  async function handleResetSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    if (!email.trim() || !code.trim() || newPassword.trim().length < 8) {
+      setError("رسمي ایمیل، ۶ عددي کوډ، او لږ تر لږه ۸ توري نوی پاسورډ ولیکئ.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await resetStaffPassword(email.trim(), code.trim(), newPassword.trim());
+      if (!res.ok) {
+        setError(res.error || "د پاسورډ په بدلولو کې ستونزه راغله.");
+        return;
+      }
+      setInfo(res.message || "ایمیل تایید او نوی پاسورډ خوندي شو. اوس ننوځئ.");
+      setPassword(newPassword.trim());
+      setCode("");
+      setNewPassword("");
+      setMode("email");
+    } catch {
+      setError("د پاسورډ په بدلولو کې ستونزه راغله.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-card p-8 shadow-sm">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand/15 text-brand">
+            <Lock className="h-6 w-6" aria-hidden="true" />
           </div>
-        ))}
-      </div>
-    </div>
-    <p className="relative text-[0.66rem] text-[#a7b0ba]">
-      Authorized editor access only.
-    </p>
-  </section>
-
-  <section className="flex items-center justify-center px-5 py-12">
-    <div className="w-full max-w-md">
-      <div className="mb-8 flex items-center gap-3 lg:hidden">
-        <LotusMark className="h-10 w-10" />
-        <p className="font-display text-xl font-semibold">Buddha News</p>
-      </div>
-      <p className="kicker mb-3 text-brand">Newsroom access</p>
-      <h2 className="font-display text-[clamp(2rem,4vw,2.8rem)] font-semibold text-foreground">
-        Sign in to manage stories.
-      </h2>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        Enter the <strong className="text-foreground">ADMIN_SECRET</strong> password you set in Wrangler
-        to add, edit, or delete articles.
-      </p>
-
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
-        <label className="grid gap-1.5 text-xs font-bold text-foreground">
-          Admin Password (ADMIN_SECRET)
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            placeholder="Enter your admin password"
-            className="h-11 rounded-md border border-line bg-background px-3 text-sm font-normal text-foreground focus:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
-          />
-        </label>
-
-        {error && (
-          <p className="text-xs font-semibold text-destructive" role="alert">
-            {error}
+          <span className="kicker text-[0.68rem] uppercase tracking-[0.18em] text-brand">
+            Buddha News CMS
+          </span>
+          <h1 className="mt-1 font-display text-2xl font-bold text-foreground">
+            {t("adminLogin")}
+          </h1>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            د رسمي ایمیل، تایید کوډ، یا د رول پټ کوډ له لارې ننوځئ.
           </p>
+        </div>
+
+        <div className="mb-5 grid grid-cols-3 gap-1.5 rounded-lg border border-line bg-background p-1 text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => { setMode("email"); setError(null); setInfo(null); }}
+            className={mode === "email" ? "rounded-md bg-ink py-2 text-paper" : "rounded-md py-2 text-muted-foreground hover:text-foreground"}
+          >
+            Email Login
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode("reset"); setError(null); setInfo(null); }}
+            className={mode === "reset" ? "rounded-md bg-ink py-2 text-paper" : "rounded-md py-2 text-muted-foreground hover:text-foreground"}
+          >
+            Verify / Reset
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode("secret"); setError(null); setInfo(null); }}
+            className={mode === "secret" ? "rounded-md bg-ink py-2 text-paper" : "rounded-md py-2 text-muted-foreground hover:text-foreground"}
+          >
+            Role Secret
+          </button>
+        </div>
+
+        {mode === "email" && (
+          <form onSubmit={handleEmailLogin} className="space-y-4 text-xs">
+            <div>
+              <label className="mb-1.5 block font-semibold text-foreground">رسمي ایمیل (Official Email)</label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="name@yourdomain.com"
+                  className="w-full rounded-lg border border-line bg-background py-2.5 pl-10 pr-3 text-sm text-foreground focus:border-brand focus:outline-none"
+                  autoComplete="email"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block font-semibold text-foreground">پاسورډ (Password)</label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full rounded-lg border border-line bg-background px-3.5 py-2.5 text-sm text-foreground focus:border-brand focus:outline-none"
+                autoComplete="current-password"
+              />
+            </div>
+
+            {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 font-medium text-destructive">{error}</p>}
+            {info && <p className="rounded-lg bg-teal/10 px-3 py-2 font-medium text-teal">{info}</p>}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {submitting ? "ننوځي..." : "ننوتل (Sign In)"}
+            </button>
+          </form>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-ink px-5 text-sm font-extrabold text-paper transition-opacity hover:opacity-90 disabled:opacity-60"
-        >
-          {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-          Sign in <ArrowRight className="h-4 w-4" />
-        </button>
-      </form>
+        {mode === "reset" && (
+          <form onSubmit={handleResetSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="mb-1.5 block font-semibold text-foreground">رسمي ایمیل</label>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="name@yourdomain.com"
+                  className="w-full rounded-lg border border-line bg-background px-3 py-2.5 text-sm text-foreground focus:border-brand focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleSendCode}
+                  disabled={sendingCode}
+                  className="shrink-0 rounded-lg border border-line bg-background px-3 py-2.5 font-bold text-foreground hover:border-brand hover:text-brand disabled:opacity-50"
+                >
+                  {sendingCode ? "لېږي..." : "کوډ وغواړئ"}
+                </button>
+              </div>
+            </div>
 
-      <p className="mt-6 text-center text-[0.66rem] text-muted-foreground">
-        Public reader? <a href="/en/" className="font-bold text-teal hover:text-brand">Return to Buddha News</a>
-      </p>
+            <div>
+              <label className="mb-1.5 block font-semibold text-foreground">۶ عددي د تایید کوډ</label>
+              <div className="relative">
+                <ShieldCheck className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input
+                  type="text"
+                  value={code}
+                  onChange={e => setCode(e.target.value)}
+                  placeholder="123456"
+                  className="w-full rounded-lg border border-line bg-background py-2.5 pl-10 pr-3 text-sm text-foreground focus:border-brand focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block font-semibold text-foreground">نوی پاسورډ (لږ تر لږه ۸ توري)</label>
+              <div className="relative">
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-lg border border-line bg-background py-2.5 pl-10 pr-3 text-sm text-foreground focus:border-brand focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 font-medium text-destructive">{error}</p>}
+            {info && <p className="rounded-lg bg-teal/10 px-3 py-2 font-medium text-teal">{info}</p>}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {submitting ? "خوندي کوي..." : "ایمیل تایید او پاسورډ خوندي کړئ"}
+            </button>
+          </form>
+        )}
+
+        {mode === "secret" && (
+          <form onSubmit={handleSecretLogin} className="space-y-4 text-xs">
+            <div>
+              <label className="mb-1.5 block font-semibold text-foreground">
+                د رول پټ کوډ (Owner / Chief Editor / Reporter Secret)
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full rounded-lg border border-line bg-background px-3.5 py-2.5 text-sm text-foreground focus:border-brand focus:outline-none"
+                autoFocus
+              />
+            </div>
+
+            {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 font-medium text-destructive">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {submitting ? "ننوځي..." : t("signIn")}
+            </button>
+          </form>
+        )}
+      </div>
     </div>
-  </section>
-</div>
-);
+  );
 }
