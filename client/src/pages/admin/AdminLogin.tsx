@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from "react";
 import { KeyRound, Lock, Mail, ShieldCheck } from "lucide-react";
-import { useI18n } from "@/contexts/I18nContext";
 import {
   loginWithSecret,
   loginWithStaffEmail,
@@ -13,7 +12,6 @@ interface AdminLoginProps {
 }
 
 export default function AdminLogin({ onSuccess }: AdminLoginProps) {
-  const { t } = useI18n();
   const [mode, setMode] = useState<"email" | "secret" | "reset">("email");
 
   const [email, setEmail] = useState("");
@@ -32,14 +30,14 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
     setError(null);
     setInfo(null);
     if (!email.trim() || !password.trim()) {
-      setError("مهرباني وکړئ رسمي ایمیل او پاسورډ ولیکئ.");
+      setError("Please enter your official email and password.");
       return;
     }
     setSubmitting(true);
     try {
       const res = await loginWithStaffEmail(email.trim(), password.trim());
       if (!res.ok) {
-        setError(res.error || "ایمیل یا پاسورډ سم نه دی.");
+        setError(res.error || "Invalid email or password.");
         if (res.needsVerification) {
           setMode("reset");
         }
@@ -47,7 +45,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
       }
       onSuccess?.();
     } catch {
-      setError("د ننوتلو پر مهال د شبکې ستونزه راغله.");
+      setError("Network error while signing in.");
     } finally {
       setSubmitting(false);
     }
@@ -58,19 +56,19 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
     setError(null);
     setInfo(null);
     if (!password.trim()) {
-      setError("مهرباني وکړئ پټ کوډ (Secret) ولیکئ.");
+      setError("Please enter your role secret.");
       return;
     }
     setSubmitting(true);
     try {
       const res = await loginWithSecret(password.trim());
       if (!res.ok) {
-        setError(res.error || "پاسورډ سم نه دی.");
+        setError(res.error || "Invalid secret.");
         return;
       }
       onSuccess?.();
     } catch {
-      setError("د ننوتلو پر مهال د شبکې ستونزه راغله.");
+      setError("Network error while signing in.");
     } finally {
       setSubmitting(false);
     }
@@ -80,19 +78,19 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
     setError(null);
     setInfo(null);
     if (!email.trim()) {
-      setError("لومړی خپل رسمي ایمیل ولیکئ.");
+      setError("Please enter your official email first.");
       return;
     }
     setSendingCode(true);
     try {
       const res = await requestStaffCode(email.trim());
       if (!res.ok) {
-        setError(res.error || "د کوډ په لېږلو کې ستونزه راغله.");
+        setError(res.error || "Failed to send verification code.");
         return;
       }
-      setInfo(res.message || "د تایید کوډ واستول شو.");
+      setInfo(res.message || "Verification code sent.");
     } catch {
-      setError("د کوډ په لېږلو کې ستونزه راغله.");
+      setError("Failed to send verification code.");
     } finally {
       setSendingCode(false);
     }
@@ -103,30 +101,30 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
     setError(null);
     setInfo(null);
     if (!email.trim() || !code.trim() || newPassword.trim().length < 8) {
-      setError("رسمي ایمیل، ۶ عددي کوډ، او لږ تر لږه ۸ توري نوی پاسورډ ولیکئ.");
+      setError("Official email, 6-digit code, and a password of at least 8 characters are required.");
       return;
     }
     setSubmitting(true);
     try {
       const res = await resetStaffPassword(email.trim(), code.trim(), newPassword.trim());
       if (!res.ok) {
-        setError(res.error || "د پاسورډ په بدلولو کې ستونزه راغله.");
+        setError(res.error || "Failed to verify email or reset password.");
         return;
       }
-      setInfo(res.message || "ایمیل تایید او نوی پاسورډ خوندي شو. اوس ننوځئ.");
+      setInfo(res.message || "Email verified and new password saved. You can sign in now.");
       setPassword(newPassword.trim());
       setCode("");
       setNewPassword("");
       setMode("email");
     } catch {
-      setError("د پاسورډ په بدلولو کې ستونزه راغله.");
+      setError("Failed to verify email or reset password.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+    <div dir="ltr" className="flex min-h-screen items-center justify-center bg-background px-4 py-12 text-left">
       <div className="w-full max-w-md rounded-2xl border border-line bg-card p-8 shadow-sm">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand/15 text-brand">
@@ -136,10 +134,10 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
             Buddha News CMS
           </span>
           <h1 className="mt-1 font-display text-2xl font-bold text-foreground">
-            {t("adminLogin")}
+            Admin Login
           </h1>
           <p className="mt-1.5 text-xs text-muted-foreground">
-            د رسمي ایمیل، تایید کوډ، یا د رول پټ کوډ له لارې ننوځئ.
+            Sign in with your official email, verify or reset your password, or use a role secret.
           </p>
         </div>
 
@@ -170,7 +168,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
         {mode === "email" && (
           <form onSubmit={handleEmailLogin} className="space-y-4 text-xs">
             <div>
-              <label className="mb-1.5 block font-semibold text-foreground">رسمي ایمیل (Official Email)</label>
+              <label className="mb-1.5 block font-semibold text-foreground">Official Email</label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <input
@@ -185,7 +183,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
             </div>
 
             <div>
-              <label className="mb-1.5 block font-semibold text-foreground">پاسورډ (Password)</label>
+              <label className="mb-1.5 block font-semibold text-foreground">Password</label>
               <input
                 type="password"
                 value={password}
@@ -204,7 +202,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
               disabled={submitting}
               className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {submitting ? "ننوځي..." : "ننوتل (Sign In)"}
+              {submitting ? "Signing in..." : "Sign In"}
             </button>
           </form>
         )}
@@ -212,7 +210,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
         {mode === "reset" && (
           <form onSubmit={handleResetSubmit} className="space-y-4 text-xs">
             <div>
-              <label className="mb-1.5 block font-semibold text-foreground">رسمي ایمیل</label>
+              <label className="mb-1.5 block font-semibold text-foreground">Official Email</label>
               <div className="flex gap-2">
                 <input
                   type="email"
@@ -227,13 +225,13 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
                   disabled={sendingCode}
                   className="shrink-0 rounded-lg border border-line bg-background px-3 py-2.5 font-bold text-foreground hover:border-brand hover:text-brand disabled:opacity-50"
                 >
-                  {sendingCode ? "لېږي..." : "کوډ وغواړئ"}
+                  {sendingCode ? "Sending..." : "Send Code"}
                 </button>
               </div>
             </div>
 
             <div>
-              <label className="mb-1.5 block font-semibold text-foreground">۶ عددي د تایید کوډ</label>
+              <label className="mb-1.5 block font-semibold text-foreground">6-Digit Verification Code</label>
               <div className="relative">
                 <ShieldCheck className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <input
@@ -247,7 +245,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
             </div>
 
             <div>
-              <label className="mb-1.5 block font-semibold text-foreground">نوی پاسورډ (لږ تر لږه ۸ توري)</label>
+              <label className="mb-1.5 block font-semibold text-foreground">New Password (min 8 characters)</label>
               <div className="relative">
                 <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <input
@@ -268,7 +266,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
               disabled={submitting}
               className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {submitting ? "خوندي کوي..." : "ایمیل تایید او پاسورډ خوندي کړئ"}
+              {submitting ? "Saving..." : "Verify Email & Save Password"}
             </button>
           </form>
         )}
@@ -277,7 +275,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
           <form onSubmit={handleSecretLogin} className="space-y-4 text-xs">
             <div>
               <label className="mb-1.5 block font-semibold text-foreground">
-                د رول پټ کوډ (Owner / Chief Editor / Reporter Secret)
+                Role Secret (Owner / Chief Editor / Reporter)
               </label>
               <input
                 type="password"
@@ -296,7 +294,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
               disabled={submitting}
               className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {submitting ? "ننوځي..." : t("signIn")}
+              {submitting ? "Signing in..." : "Sign In"}
             </button>
           </form>
         )}

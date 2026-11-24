@@ -52,7 +52,7 @@ export function StaffAccountsPanel() {
     if (!isOwner) return;
     const token = getAdminToken();
     if (!token || !name.trim() || !email.trim()) {
-      toast.error("نوم او رسمي ایمیل ولیکئ.");
+      toast.error("Name and official email are required.");
       return;
     }
     setSaving(true);
@@ -67,14 +67,14 @@ export function StaffAccountsPanel() {
       });
       const data = (await res.json()) as { success?: boolean; code?: string; error?: string };
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "د کارکوونکي په اضافه کولو کې ستونزه راغله.");
+        throw new Error(data.error || "Failed to add staff member.");
       }
-      toast.success("کارکوونکی ثبت شو. د تایید کوډ: " + (data.code || ""));
+      toast.success("Staff member added. Verification code: " + (data.code || ""));
       setName("");
       setEmail("");
       await loadUsers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "ستونزه راغله.");
+      toast.error(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setSaving(false);
     }
@@ -88,27 +88,27 @@ export function StaffAccountsPanel() {
       headers: { Authorization: "Bearer " + token },
     });
     if (res.ok) {
-      toast.success("کارکوونکی لرې شو.");
+      toast.success("Staff member removed.");
       await loadUsers();
     }
   }
 
   if (!isOwner) {
     return (
-      <div className="rounded-lg border border-line bg-card p-5 text-xs text-muted-foreground">
-        د کارکوونکو د حسابونو او رسمي ایمیلونو مدیریت یوازې د مالک (Owner) په واک کې دی.
+      <div dir="ltr" className="rounded-lg border border-line bg-card p-5 text-xs text-muted-foreground">
+        Staff account and official email management is restricted to the Owner.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-line bg-card p-6 text-xs">
+    <div dir="ltr" className="space-y-4 rounded-lg border border-line bg-card p-6 text-left text-xs">
       <div>
         <h2 className="font-display text-base font-bold text-foreground">
-          رسمي ایمیلونه او کارکوونکي (Staff Accounts)
+          Staff Accounts & Official Emails
         </h2>
         <p className="mt-1 text-muted-foreground">
-          چیف ایډیټر یا خبریال په خپل رسمي ایمیل اضافه کړئ ترڅو ایمیل تایید او پاسورډ وټاکي.
+          Add a Chief Editor or Reporter by their official email so they can verify their email and set a password.
         </p>
       </div>
 
@@ -117,7 +117,7 @@ export function StaffAccountsPanel() {
           type="text"
           value={name}
           onChange={e => setName(e.target.value)}
-          placeholder="د کارکوونکي نوم"
+          placeholder="Staff full name"
           className="h-10 rounded-md border border-line bg-background px-3 text-foreground"
         />
         <input
@@ -132,8 +132,8 @@ export function StaffAccountsPanel() {
           onChange={e => setStaffRole(e.target.value as "chief_editor" | "reporter")}
           className="h-10 rounded-md border border-line bg-background px-3 text-foreground"
         >
-          <option value="reporter">Reporter (خبریال)</option>
-          <option value="chief_editor">Chief Editor (چیف ایډیټر)</option>
+          <option value="reporter">Reporter</option>
+          <option value="chief_editor">Chief Editor</option>
         </select>
         <button
           type="submit"
@@ -141,7 +141,7 @@ export function StaffAccountsPanel() {
           className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md bg-ink px-4 font-bold text-paper hover:bg-brand hover:text-ink disabled:opacity-50"
         >
           <UserPlus className="h-4 w-4" aria-hidden="true" />
-          {saving ? "ثبتوي..." : "اضافه کول"}
+          {saving ? "Saving..." : "Add Staff"}
         </button>
       </form>
 
@@ -149,18 +149,18 @@ export function StaffAccountsPanel() {
         <table className="w-full text-left">
           <thead className="border-b border-line text-[0.68rem] uppercase text-muted-foreground">
             <tr>
-              <th className="py-2 pr-3">نوم</th>
-              <th className="py-2 px-3">ایمیل</th>
-              <th className="py-2 px-3">رول</th>
-              <th className="py-2 px-3">حالت / کوډ</th>
-              <th className="py-2 pl-3 text-right">لرې کول</th>
+              <th className="py-2 pr-3">Name</th>
+              <th className="py-2 px-3">Email</th>
+              <th className="py-2 px-3">Role</th>
+              <th className="py-2 px-3">Status / Code</th>
+              <th className="py-2 pl-3 text-right">Remove</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {loading ? (
-              <tr><td colSpan={5} className="py-4 text-muted-foreground">پورته کېږي...</td></tr>
+              <tr><td colSpan={5} className="py-4 text-muted-foreground">Loading...</td></tr>
             ) : users.length === 0 ? (
-              <tr><td colSpan={5} className="py-4 text-muted-foreground">تر اوسه رسمي ایمیل حساب نه دی اضافه شوی.</td></tr>
+              <tr><td colSpan={5} className="py-4 text-muted-foreground">No staff email accounts added yet.</td></tr>
             ) : (
               users.map(u => (
                 <tr key={u.id}>
@@ -168,7 +168,7 @@ export function StaffAccountsPanel() {
                   <td className="py-2.5 px-3 text-muted-foreground">{u.email}</td>
                   <td className="py-2.5 px-3 font-semibold text-foreground">{u.role}</td>
                   <td className="py-2.5 px-3 text-muted-foreground">
-                    {u.verified ? "تایید شوی (Verified)" : "د تایید په تمه — کوډ: " + (u.verification_code || "-")}
+                    {u.verified ? "Verified" : "Pending — Code: " + (u.verification_code || "-")}
                   </td>
                   <td className="py-2.5 pl-3 text-right">
                     <button
