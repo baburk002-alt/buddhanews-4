@@ -32,7 +32,7 @@ function resolveStaffRoleSync(request: Request, env: Env): StaffRole | null {
 }
 
 async function await isAuthorized(request: Request, env: Env): Promise<boolean> {
-  return await resolveStaffRoleAsync(request, env) !== null;
+  return (await resolveStaffRoleAsync(request, env)) !== null;
 }
 
 async function hashPassword(password: string): Promise<string> {
