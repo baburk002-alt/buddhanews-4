@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from "react";
-import { KeyRound, Lock, Mail, ShieldCheck } from "lucide-react";
+import { KeyRound, Lock, Mail, ShieldCheck, UserCheck } from "lucide-react";
 import {
+  getUserRole,
   loginWithSecret,
   loginWithStaffEmail,
   requestStaffCode,
   resetStaffPassword,
 } from "@/lib/adminAuth";
+
+type SelectedRole = "owner" | "chief_editor" | "reporter";
 
 interface AdminLoginProps {
   onSuccess?: () => void;
@@ -13,6 +16,7 @@ interface AdminLoginProps {
 
 export default function AdminLogin({ onSuccess }: AdminLoginProps) {
   const [mode, setMode] = useState<"email" | "secret" | "reset">("email");
+  const [selectedRole, setSelectedRole] = useState<SelectedRole>("reporter");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,6 +28,17 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
   const [sendingCode, setSendingCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  function verifyRoleMatch(): boolean {
+    const actualRole = getUserRole();
+    if (actualRole && actualRole !== selectedRole) {
+      setError(
+        "This account is registered as '" + actualRole + "', not '" + selectedRole + "'. Please select the matching role."
+      );
+      return false;
+    }
+    return true;
+  }
 
   async function handleEmailLogin(e: FormEvent) {
     e.preventDefault();
@@ -43,6 +58,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
         }
         return;
       }
+      if (!verifyRoleMatch()) return;
       onSuccess?.();
     } catch {
       setError("Network error while signing in.");
@@ -66,6 +82,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
         setError(res.error || "Invalid secret.");
         return;
       }
+      if (!verifyRoleMatch()) return;
       onSuccess?.();
     } catch {
       setError("Network error while signing in.");
@@ -123,6 +140,12 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
     }
   }
 
+  const roleOptions: Array<{ id: SelectedRole; label: string }> = [
+    { id: "owner", label: "Owner" },
+    { id: "chief_editor", label: "Chief Editor" },
+    { id: "reporter", label: "Reporter" },
+  ];
+
   return (
     <div dir="ltr" className="flex min-h-screen items-center justify-center bg-background px-4 py-12 text-left">
       <div className="w-full max-w-md rounded-2xl border border-line bg-card p-8 shadow-sm">
@@ -137,8 +160,31 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
             Admin Login
           </h1>
           <p className="mt-1.5 text-xs text-muted-foreground">
-            Sign in with your official email, verify or reset your password, or use a role secret.
+            Choose your login role and sign in with your official email or role secret.
           </p>
+        </div>
+
+        <div className="mb-5">
+          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <UserCheck className="h-3.5 w-3.5 text-brand" aria-hidden="true" />
+            <span>Select Login Role</span>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5 rounded-lg border border-line bg-background p-1 text-xs font-bold">
+            {roleOptions.map(opt => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => { setSelectedRole(opt.id); setError(null); }}
+                className={
+                  selectedRole === opt.id
+                    ? "rounded-md bg-brand py-2 text-brand-foreground"
+                    : "rounded-md py-2 text-muted-foreground hover:text-foreground"
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="mb-5 grid grid-cols-3 gap-1.5 rounded-lg border border-line bg-background p-1 text-xs font-bold">
