@@ -31,7 +31,7 @@ function resolveStaffRoleSync(request: Request, env: Env): StaffRole | null {
   return null;
 }
 
-function isAuthorized(request: Request, env: Env): boolean {
+async function await isAuthorized(request: Request, env: Env): Promise<boolean> {
   return await resolveStaffRoleAsync(request, env) !== null;
 }
 
