@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { CheckCircle2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/contexts/I18nContext";
 import { AdminPageHeader, ConfirmDialog, StatusBadge } from "@/components/admin/AdminUI";
-import { getAdminToken } from "@/lib/adminAuth";
+import { getAdminToken, getUserRole, type UserRole } from "@/lib/adminAuth";
 
 interface D1Article {
   id: number;
@@ -29,7 +29,7 @@ interface D1Article {
   updated_at: string;
 }
 
-type StatusFilter = "all" | "draft" | "published" | "archived";
+type StatusFilter = "all" | "draft" | "pending_approval" | "published" | "archived";
 
 const EMPTY_FORM = {
   title_en: "",
@@ -49,6 +49,9 @@ const EMPTY_FORM = {
 
 export default function Articles() {
   const { formatDate } = useI18n();
+  const [role, setRole] = useState<UserRole>(() => getUserRole() || "owner");
+  const isReporter = role === "reporter";
+
   const [status, setStatus] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [articles, setArticles] = useState<D1Article[]>([]);
@@ -62,6 +65,12 @@ export default function Articles() {
   const [editingArticle, setEditingArticle] = useState<D1Article | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const syncRole = () => setRole(getUserRole() || "owner");
+    window.addEventListener("buddhanews-admin-auth", syncRole);
+    return () => window.removeEventListener("buddhanews-admin-auth", syncRole);
+  }, []);
 
   const loadArticles = useCallback(async () => {
     setLoading(true);
@@ -96,11 +105,18 @@ export default function Articles() {
 
   function openCreateModal() {
     setEditingArticle(null);
-    setForm(EMPTY_FORM);
+    setForm({
+      ...EMPTY_FORM,
+      status: isReporter ? "pending_approval" : "published",
+    });
     setEditorOpen(true);
   }
 
   function openEditModal(article: D1Article) {
+    if (isReporter) {
+      toast.info("خبریالان یوازې نوی راپور لېږلی شي؛ سمونه او تصویب د Chief Editor په واک کې دي.");
+      return;
+    }
     setEditingArticle(article);
     setForm({
       title_en: article.title_en || "",
@@ -120,11 +136,37 @@ export default function Articles() {
     setEditorOpen(true);
   }
 
+  async function handleApprovePublish(article: D1Article) {
+    const token = getAdminToken();
+    if (!token) {
+      toast.error("مهرباني وکړئ لومړی ننوځئ.");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/articles/${article.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: "published" }),
+      });
+      const data = (await res.json()) as { success?: boolean; error?: string };
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "د خبر په تصویب کې ستونزه راغله.");
+      }
+      toast.success("راپور تصویب او خپور شو.");
+      await loadArticles();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "د خبر په تصویب کې ستونزه راغله.");
+    }
+  }
+
   async function handleSave(e: FormEvent) {
     e.preventDefault();
     const token = getAdminToken();
     if (!token) {
-      toast.error("مهرباني وکړئ لومړی په ADMIN_SECRET سره ننوځئ.");
+      toast.error("مهرباني وکړئ لومړی د ننوتلو پټ کوډ ورکړئ.");
       return;
     }
 
@@ -139,6 +181,7 @@ export default function Articles() {
     try {
       const payload = {
         ...form,
+        status: isReporter ? "pending_approval" : form.status,
         title_en: titleEn,
         summary_en: form.summary_en.trim() || form.summary_ps.trim() || titleEn,
         content_en: contentEn,
@@ -170,7 +213,11 @@ export default function Articles() {
         throw new Error(data.error || "د خبر په خوندي کولو کې ستونزه راغله.");
       }
 
-      toast.success(data.message || (isEdit ? "خبر تازه شو." : "نوی خبر اضافه شو."));
+      toast.success(
+        isReporter
+          ? "راپور واستول شو؛ د Chief Editor له تصویب وروسته به خپور شي."
+          : data.message || (isEdit ? "خبر تازه شو." : "نوی خبر اضافه شو.")
+      );
       setEditorOpen(false);
       setEditingArticle(null);
       setForm(EMPTY_FORM);
@@ -186,7 +233,7 @@ export default function Articles() {
     if (!deleteTarget) return;
     const token = getAdminToken();
     if (!token) {
-      toast.error("مهرباني وکړئ لومړی په ADMIN_SECRET سره ننوځئ.");
+      toast.error("مهرباني وکړئ لومړی ننوځئ.");
       return;
     }
 
@@ -216,8 +263,14 @@ export default function Articles() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title="Stories (D1)"
-        description="Add new stories, edit existing ones, or remove stories directly from Cloudflare D1."
+        title={isReporter ? "Submit Report (Reporter)" : "Stories & Approvals (D1)"}
+        description={
+          isReporter
+            ? "Submit your report, area, and image. Chief Editor or Owner will review and approve before publishing."
+            : role === "chief_editor"
+              ? "Chief Editor: write, edit, approve/publish reports, or delete stories."
+              : "Owner: full control over stories, approvals, and newsroom workflow."
+        }
         actions={
           <button
             type="button"
@@ -225,27 +278,29 @@ export default function Articles() {
             className="inline-flex min-h-10 items-center gap-2 rounded-md bg-ink px-4 py-2 text-xs font-extrabold text-paper hover:bg-brand hover:text-ink"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Add story
+            {isReporter ? "Submit report" : "Add story"}
           </button>
         }
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
-          {(["all", "draft", "published", "archived"] as StatusFilter[]).map(tab => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setStatus(tab)}
-              className={`rounded-md px-3 py-1.5 text-xs font-bold capitalize transition-colors ${
-                status === tab
-                  ? "bg-ink text-paper"
-                  : "border border-line bg-card text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+          {(["all", "pending_approval", "draft", "published", "archived"] as StatusFilter[]).map(
+            tab => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setStatus(tab)}
+                className={`rounded-md px-3 py-1.5 text-xs font-bold capitalize transition-colors ${
+                  status === tab
+                    ? "bg-ink text-paper"
+                    : "border border-line bg-card text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab.replace("_", " ")}
+              </button>
+            )
+          )}
         </div>
 
         <div className="relative w-full sm:w-72">
@@ -278,20 +333,20 @@ export default function Articles() {
               <th className="px-4 py-3">Section</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Updated</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              {!isReporter && <th className="px-4 py-3 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={isReporter ? 5 : 6} className="px-4 py-8 text-center text-muted-foreground">
                   Loading stories from D1...
                 </td>
               </tr>
             ) : articles.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                  No stories found in D1 yet. Click Add story to create one.
+                <td colSpan={isReporter ? 5 : 6} className="px-4 py-8 text-center text-muted-foreground">
+                  No stories found in D1 yet.
                 </td>
               </tr>
             ) : (
@@ -318,26 +373,40 @@ export default function Articles() {
                   <td className="px-4 py-3 text-muted-foreground">
                     {formatDate(article.updated_at)}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(article)}
-                        aria-label="Edit story"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-line bg-background text-foreground hover:border-brand hover:text-brand"
-                      >
-                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(article)}
-                        aria-label="Delete story"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-line bg-background text-destructive hover:border-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </td>
+                  {!isReporter && (
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        {article.status !== "published" && (
+                          <button
+                            type="button"
+                            onClick={() => handleApprovePublish(article)}
+                            title="Approve & Publish"
+                            aria-label="Approve and publish story"
+                            className="inline-flex h-8 items-center gap-1 rounded border border-teal/40 bg-teal/10 px-2 text-[0.68rem] font-bold text-teal hover:bg-teal hover:text-white"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            Approve
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(article)}
+                          aria-label="Edit story"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded border border-line bg-background text-foreground hover:border-brand hover:text-brand"
+                        >
+                          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(article)}
+                          aria-label="Delete story"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded border border-line bg-background text-destructive hover:border-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -350,7 +419,11 @@ export default function Articles() {
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-line bg-card p-6 shadow-xl">
             <div className="flex items-center justify-between border-b border-line pb-3">
               <h2 className="font-display text-lg font-bold text-foreground">
-                {editingArticle ? "Edit Story (D1)" : "Add New Story (D1)"}
+                {isReporter
+                  ? "Submit Report for Approval"
+                  : editingArticle
+                    ? "Edit Story (D1)"
+                    : "Add New Story (D1)"}
               </h2>
               <button
                 type="button"
@@ -383,15 +456,25 @@ export default function Articles() {
 
                 <div>
                   <label className="mb-1 block font-bold text-foreground">Status</label>
-                  <select
-                    value={form.status}
-                    onChange={e => setForm({ ...form, status: e.target.value })}
-                    className="h-10 w-full rounded-md border border-line bg-background px-3 text-foreground"
-                  >
-                    <option value="published">published</option>
-                    <option value="draft">draft</option>
-                    <option value="archived">archived</option>
-                  </select>
+                  {isReporter ? (
+                    <input
+                      type="text"
+                      readOnly
+                      value="pending_approval (needs Chief Editor)"
+                      className="h-10 w-full rounded-md border border-line bg-muted px-3 text-muted-foreground"
+                    />
+                  ) : (
+                    <select
+                      value={form.status}
+                      onChange={e => setForm({ ...form, status: e.target.value })}
+                      className="h-10 w-full rounded-md border border-line bg-background px-3 text-foreground"
+                    >
+                      <option value="published">published</option>
+                      <option value="pending_approval">pending_approval</option>
+                      <option value="draft">draft</option>
+                      <option value="archived">archived</option>
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -523,7 +606,13 @@ export default function Articles() {
                   disabled={saving}
                   className="rounded-md bg-ink px-4 py-2 font-extrabold text-paper hover:bg-brand hover:text-ink disabled:opacity-50"
                 >
-                  {saving ? "Saving..." : editingArticle ? "Save Changes" : "Publish Story"}
+                  {saving
+                    ? "Saving..."
+                    : isReporter
+                      ? "Submit for Approval"
+                      : editingArticle
+                        ? "Save Changes"
+                        : "Publish Story"}
                 </button>
               </div>
             </form>

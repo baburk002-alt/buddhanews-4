@@ -2,6 +2,8 @@ export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
   ADMIN_SECRET?: string;
+  CHIEF_EDITOR_SECRET?: string;
+  REPORTER_SECRET?: string;
 }
 
 const corsHeaders = {
@@ -10,14 +12,25 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-function isAuthorized(request: Request, env: Env): boolean {
-  const secret = (env.ADMIN_SECRET || "").trim();
-  if (!secret) {
-    return false;
-  }
+type StaffRole = "owner" | "chief_editor" | "reporter";
+
+function resolveStaffRole(request: Request, env: Env): StaffRole | null {
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  return token === secret;
+  if (!token) return null;
+
+  const ownerSecret = (env.ADMIN_SECRET || "").trim();
+  const chiefSecret = (env.CHIEF_EDITOR_SECRET || "").trim();
+  const reporterSecret = (env.REPORTER_SECRET || "").trim();
+
+  if (ownerSecret && token === ownerSecret) return "owner";
+  if (chiefSecret && token === chiefSecret) return "chief_editor";
+  if (reporterSecret && token === reporterSecret) return "reporter";
+  return null;
+}
+
+function isAuthorized(request: Request, env: Env): boolean {
+  return resolveStaffRole(request, env) !== null;
 }
 
 function slugify(input: string): string {
@@ -297,26 +310,47 @@ export default {
     if (url.pathname === "/api/admin/login") {
       if (request.method === "POST") {
         try {
-          const body = (await request.json()) as { password?: string };
+          const body = (await request.json()) as { password?: string; role?: StaffRole };
           const password = (body.password || "").trim();
-          const secret = (env.ADMIN_SECRET || "").trim();
+          const ownerSecret = (env.ADMIN_SECRET || "").trim();
+          const chiefSecret = (env.CHIEF_EDITOR_SECRET || "").trim();
+          const reporterSecret = (env.REPORTER_SECRET || "").trim();
 
-          if (!secret) {
+          if (!ownerSecret && !chiefSecret && !reporterSecret) {
             return Response.json(
-              { success: false, error: "ADMIN_SECRET په Cloudflare Worker کې تنظیم شوی نه دی." },
+              { success: false, error: "په Cloudflare Worker کې د ننوتلو پټ کوډ تنظیم شوی نه دی." },
               { status: 500, headers: corsHeaders }
             );
           }
 
-          if (!password || password !== secret) {
+          if (!password) {
             return Response.json(
               { success: false, error: "پاسورډ سم نه دی." },
               { status: 401, headers: corsHeaders }
             );
           }
 
+          let matchedRole: StaffRole | null = null;
+          if (ownerSecret && password === ownerSecret) matchedRole = "owner";
+          else if (chiefSecret && password === chiefSecret) matchedRole = "chief_editor";
+          else if (reporterSecret && password === reporterSecret) matchedRole = "reporter";
+
+          if (!matchedRole) {
+            return Response.json(
+              { success: false, error: "پاسورډ سم نه دی." },
+              { status: 401, headers: corsHeaders }
+            );
+          }
+
+          if (body.role && body.role !== matchedRole && matchedRole !== "owner") {
+            return Response.json(
+              { success: false, error: "دا پټ کوډ د دې رول لپاره نه دی." },
+              { status: 403, headers: corsHeaders }
+            );
+          }
+
           return Response.json(
-            { success: true, token: secret },
+            { success: true, token: password, role: matchedRole },
             { status: 200, headers: corsHeaders }
           );
         } catch {
@@ -375,7 +409,8 @@ export default {
       }
 
       if (request.method === "POST") {
-        if (!isAuthorized(request, env)) {
+        const role = resolveStaffRole(request, env);
+        if (!role) {
           return Response.json(
             { success: false, error: "Unauthorized" },
             { status: 401, headers: corsHeaders }
@@ -419,7 +454,11 @@ export default {
           const slug = `${baseSlug}-${Date.now().toString(36)}`;
           const category = (body.category || "world").trim();
           const subcategory = (body.subcategory || "").trim() || null;
-          const status = (body.status || "published").trim();
+          const requestedStatus = (body.status || "published").trim();
+          const status =
+            role === "reporter"
+              ? "pending_approval"
+              : requestedStatus;
           const authorName = (body.author_name || "Buddha Newsroom").trim();
           const authorAvatar = (body.author_avatar || "").trim() || null;
           const authorLocation = (body.author_location || "").trim() || null;
@@ -486,10 +525,11 @@ export default {
       const id = Number(articleMatch[1]);
 
       if (request.method === "PUT") {
-        if (!isAuthorized(request, env)) {
+        const role = resolveStaffRole(request, env);
+        if (!role || role === "reporter") {
           return Response.json(
-            { success: false, error: "Unauthorized" },
-            { status: 401, headers: corsHeaders }
+            { success: false, error: "یوازې Chief Editor یا Owner راپورونه سمولی او تصویبولی شي." },
+            { status: 403, headers: corsHeaders }
           );
         }
 
@@ -602,10 +642,11 @@ export default {
       }
 
       if (request.method === "DELETE") {
-        if (!isAuthorized(request, env)) {
+        const role = resolveStaffRole(request, env);
+        if (!role || role === "reporter") {
           return Response.json(
-            { success: false, error: "Unauthorized" },
-            { status: 401, headers: corsHeaders }
+            { success: false, error: "یوازې Chief Editor یا Owner راپورونه لرې کولی شي." },
+            { status: 403, headers: corsHeaders }
           );
         }
 
