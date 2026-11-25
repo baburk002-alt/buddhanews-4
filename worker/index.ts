@@ -849,6 +849,6 @@ export default {
       ));
     }
 
-    return env.ASSETS.fetch(request);
+    return withSecurityHeaders(env.ASSETS.fetch(request));
   },
 };
