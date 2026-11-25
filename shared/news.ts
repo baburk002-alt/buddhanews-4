@@ -73,7 +73,6 @@ export const CATEGORIES: Category[] = [
           ps: "د بشري حقوقو نقض",
           fa: "نقض حقوق بشر",
         },
-      },
     ],
   },
   {
@@ -111,7 +110,6 @@ export const CATEGORIES: Category[] = [
       {
         key: "mining-energy",
         label: { en: "Mining & Energy", ps: "کانونه او انرژي", fa: "معادن و انرژی" },
-      },
       { key: "agriculture", label: { en: "Agriculture", ps: "کرنه", fa: "زراعت" } },
     ],
   },
@@ -176,7 +174,6 @@ export const CATEGORIES: Category[] = [
       {
         key: "womens-day",
         label: { en: "International Women's Day", ps: "د ښځو نړیواله ورځ", fa: "روز جهانی زن" },
-      },
       },
     ],
   },
