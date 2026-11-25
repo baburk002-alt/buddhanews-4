@@ -254,11 +254,11 @@ function withSecurityHeaders(response: Response): Response {
   headers.set("X-Frame-Options", "SAMEORIGIN");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  return withSecurityHeaders(new Response(response.body, {
+  return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
     headers,
-  }));
+  });
 }
 
 export default {
