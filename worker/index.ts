@@ -266,7 +266,7 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
-      return withSecurityHeaders(new Response(null, { headers: corsHeaders }));
+      return new Response(null, { headers: corsHeaders });
     }
 
     if (url.pathname.startsWith("/api/trpc/")) {
