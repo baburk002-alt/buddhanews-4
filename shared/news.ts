@@ -173,7 +173,6 @@ export const CATEGORIES: Category[] = [
     },
     accent: "#A65E4E",
     subcategories: [
-      },
       {
         key: "womens-day",
         label: { en: "International Women's Day", ps: "د ښځو نړیواله ورځ", fa: "روز جهانی زن" },
