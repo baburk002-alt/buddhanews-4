@@ -160,8 +160,7 @@ export const CATEGORIES: Category[] = [
     subcategories: [
       { key: "analysis", label: { en: "Analysis", ps: "تحلیل", fa: "تحلیل" } },
       { key: "global", label: { en: "Global", ps: "نړیوال", fa: "جهانی" } },
-      { key: "society-op", label: { en: "Society", ps: "ټولنیز نظر", fa: "دیدگاه اجتماعی" } },
-      },
+      { key: "society-op", label: { en: "Society", ps: "ټولنیز نظر", fa: "دیدگاه اجتماعی" } }
     ],
   },
   {
@@ -174,7 +173,6 @@ export const CATEGORIES: Category[] = [
     },
     accent: "#A65E4E",
     subcategories: [
-      },
       },
       {
         key: "womens-day",
