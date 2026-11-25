@@ -66,7 +66,6 @@ export const CATEGORIES: Category[] = [
       { key: "immigration", label: { en: "Immigration", ps: "مهاجرت", fa: "مهاجرت" } },
       { key: "media", label: { en: "Media", ps: "رسنۍ", fa: "رسانه‌ها" } },
       { key: "politics", label: { en: "Politics", ps: "سیاست", fa: "سیاست" } },
-      { key: "women", label: { en: "Women", ps: "ښځې", fa: "زنان" } },
       {
         key: "violations",
         label: {
@@ -162,9 +161,6 @@ export const CATEGORIES: Category[] = [
       { key: "analysis", label: { en: "Analysis", ps: "تحلیل", fa: "تحلیل" } },
       { key: "global", label: { en: "Global", ps: "نړیوال", fa: "جهانی" } },
       { key: "society-op", label: { en: "Society", ps: "ټولنیز نظر", fa: "دیدگاه اجتماعی" } },
-      {
-        key: "on-the-road",
-        label: { en: "On the Road in America", ps: "په امریکا کې په سفر", fa: "در جاده‌های امریکا" },
       },
     ],
   },
@@ -178,24 +174,27 @@ export const CATEGORIES: Category[] = [
     },
     accent: "#A65E4E",
     subcategories: [
-      {
-        key: "five-years",
-        label: { en: "Five Years of Taliban Rule", ps: "د طالبانو پنځه کلنه واکمني", fa: "پنج سال حکومت طالبان" },
       },
-      {
-        key: "fourth-year",
-        label: { en: "Taliban's Fourth Year in Power", ps: "د طالبانو په واک کې څلورم کال", fa: "سال چهارم قدرت طالبان" },
       },
       {
         key: "womens-day",
         label: { en: "International Women's Day", ps: "د ښځو نړیواله ورځ", fa: "روز جهانی زن" },
       },
-      {
-        key: "two-years",
-        label: { en: "Two Years Since the Fall", ps: "له سقوط دوه کاله", fa: "دو سال پس از سقوط" },
       },
     ],
   },
+  {
+    key: "women",
+    label: { en: "Women", ps: "ښځې", fa: "زنان" },
+    description: {
+      en: "Stories, leadership and daily realities of women across the region.",
+      ps: "په ټوله سیمه کې د ښځو کیسې، مشرتابه او ورځنی ژوند.",
+      fa: "گزارش‌ها، نقش‌آفرینی و زندگی روزمره زنان در سراسر منطقه.",
+    },
+    accent: "#C25975",
+    subcategories: [],
+  },
+
   {
     key: "videos",
     label: { en: "Videos", ps: "ویډیوګانې", fa: "ویدیوها" },
