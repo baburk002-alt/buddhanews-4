@@ -246,12 +246,34 @@ async function handleTrpcProcedure(
   return null;
 }
 
+
+function withSecurityHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+  if (!headers.has("X-Content-Type-Options")) {
+    headers.set("X-Content-Type-Options", "nosniff");
+  }
+  if (!headers.has("X-Frame-Options")) {
+    headers.set("X-Frame-Options", "SAMEORIGIN");
+  }
+  if (!headers.has("Referrer-Policy")) {
+    headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  }
+  if (!headers.has("Permissions-Policy")) {
+    headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  }
+  return withSecurityHeaders(new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  }));
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
+      return withSecurityHeaders(new Response(null, { headers: corsHeaders }));
     }
 
     if (url.pathname.startsWith("/api/trpc/")) {
@@ -286,7 +308,7 @@ export default {
               return { result: { data: { json: data } } };
             })
           );
-          return Response.json(results, { status: 200, headers: corsHeaders });
+          return withSecurityHeaders(Response.json(results, { status: 200, headers: corsHeaders }));
         } else {
           const proc = procs[0] || "";
           const input =
@@ -294,18 +316,18 @@ export default {
               ? (parsedInputs as { json?: Record<string, unknown> }).json
               : parsedInputs) || {};
           const data = await handleTrpcProcedure(proc, input as Record<string, unknown>, env);
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { result: { data: { json: data } } },
             { status: 200, headers: corsHeaders }
-          );
+          ));
         }
       } catch {
-        return Response.json(
+        return withSecurityHeaders(Response.json(
           isBatch
             ? procs.map(() => ({ result: { data: { json: [] } } }))
             : { result: { data: { json: null } } },
           { status: 200, headers: corsHeaders }
-        );
+        ));
       }
     }
 
@@ -325,10 +347,10 @@ export default {
           const message = (body.message || "").trim();
 
           if (!name || !email || !message) {
-            return Response.json(
+            return withSecurityHeaders(Response.json(
               { success: false, error: "نوم، ایمیل، او پیغام حتمي دي." },
               { status: 400, headers: corsHeaders }
-            );
+            ));
           }
 
           await env.DB.prepare(
@@ -337,22 +359,22 @@ export default {
             .bind(name, email, subject, message)
             .run();
 
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: true, message: "ستاسو پیغام په بریالیتوب سره واستول شو." },
             { status: 201, headers: corsHeaders }
-          );
+          ));
         } catch {
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: false, error: "د پیغام په خوندي کولو کې ستونزه راغله." },
             { status: 500, headers: corsHeaders }
-          );
+          ));
         }
       }
 
-      return Response.json(
+      return withSecurityHeaders(Response.json(
         { error: "Method Not Allowed" },
         { status: 405, headers: corsHeaders }
-      );
+      ));
     }
 
     if (url.pathname === "/api/staff/login" && request.method === "POST") {
@@ -361,25 +383,25 @@ export default {
         const email = (body.email || "").toLowerCase().trim();
         const password = (body.password || "").trim();
         if (!email || !password) {
-          return Response.json({ success: false, error: "Email and password are required." }, { status: 400, headers: corsHeaders });
+          return withSecurityHeaders(Response.json({ success: false, error: "Email and password are required." }, { status: 400, headers: corsHeaders }));
         }
         const user = await env.DB.prepare(
           "SELECT id, name, email, role, password_hash, verified, active FROM staff_users WHERE LOWER(email) = ? LIMIT 1"
         ).bind(email).first<{ id: number; name: string; email: string; role: StaffRole; password_hash: string | null; verified: number; active: number }>();
         if (!user || !user.active) {
-          return Response.json({ success: false, error: "Account not found or inactive." }, { status: 401, headers: corsHeaders });
+          return withSecurityHeaders(Response.json({ success: false, error: "Account not found or inactive." }, { status: 401, headers: corsHeaders }));
         }
         if (!user.verified || !user.password_hash) {
-          return Response.json({ success: false, needsVerification: true, error: "Email not verified yet. Request a code and set your password first." }, { status: 403, headers: corsHeaders });
+          return withSecurityHeaders(Response.json({ success: false, needsVerification: true, error: "Email not verified yet. Request a code and set your password first." }, { status: 403, headers: corsHeaders }));
         }
         const passHash = await hashPassword(password);
         if (passHash !== user.password_hash) {
-          return Response.json({ success: false, error: "Invalid email or password." }, { status: 401, headers: corsHeaders });
+          return withSecurityHeaders(Response.json({ success: false, error: "Invalid email or password." }, { status: 401, headers: corsHeaders }));
         }
         const token = "staff:" + encodeURIComponent(user.email) + ":" + passHash;
-        return Response.json({ success: true, token, role: user.role, name: user.name, email: user.email }, { status: 200, headers: corsHeaders });
+        return withSecurityHeaders(Response.json({ success: true, token, role: user.role, name: user.name, email: user.email }, { status: 200, headers: corsHeaders }));
       } catch {
-        return Response.json({ success: false, error: "Login error occurred." }, { status: 500, headers: corsHeaders });
+        return withSecurityHeaders(Response.json({ success: false, error: "Login error occurred." }, { status: 500, headers: corsHeaders }));
       }
     }
 
@@ -388,13 +410,13 @@ export default {
         const body = (await request.json()) as { email?: string };
         const email = (body.email || "").toLowerCase().trim();
         if (!email) {
-          return Response.json({ success: false, error: "Official email is required." }, { status: 400, headers: corsHeaders });
+          return withSecurityHeaders(Response.json({ success: false, error: "Official email is required." }, { status: 400, headers: corsHeaders }));
         }
         const user = await env.DB.prepare(
           "SELECT id, name, active FROM staff_users WHERE LOWER(email) = ? LIMIT 1"
         ).bind(email).first<{ id: number; name: string; active: number }>();
         if (!user || !user.active) {
-          return Response.json({ success: false, error: "This email is not registered by the owner." }, { status: 404, headers: corsHeaders });
+          return withSecurityHeaders(Response.json({ success: false, error: "This email is not registered by the owner." }, { status: 404, headers: corsHeaders }));
         }
         const code = generateSixDigitCode();
         const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
@@ -402,9 +424,9 @@ export default {
           "UPDATE staff_users SET verification_code = ?, code_expires_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
         ).bind(code, expiresAt, user.id).run();
         const emailRes = await sendStaffEmail(env, email, "Buddha News — Verification & Password Reset Code", "Hello " + user.name + ",\n\nYour verification code is: " + code + "\nExpires in 30 minutes.");
-        return Response.json({ success: true, emailSent: emailRes.sent, message: emailRes.sent ? "Verification code sent to your official email." : "Verification code generated. Get the code from the Owner if email is not set up yet." }, { status: 200, headers: corsHeaders });
+        return withSecurityHeaders(Response.json({ success: true, emailSent: emailRes.sent, message: emailRes.sent ? "Verification code sent to your official email." : "Verification code generated. Get the code from the Owner if email is not set up yet." }, { status: 200, headers: corsHeaders }));
       } catch {
-        return Response.json({ success: false, error: "Failed to send verification code." }, { status: 500, headers: corsHeaders });
+        return withSecurityHeaders(Response.json({ success: false, error: "Failed to send verification code." }, { status: 500, headers: corsHeaders }));
       }
     }
 
@@ -415,35 +437,35 @@ export default {
         const code = (body.code || "").trim();
         const newPassword = (body.newPassword || "").trim();
         if (!email || !code || newPassword.length < 8) {
-          return Response.json({ success: false, error: "Email, 6-digit code, and 8+ char password are required." }, { status: 400, headers: corsHeaders });
+          return withSecurityHeaders(Response.json({ success: false, error: "Email, 6-digit code, and 8+ char password are required." }, { status: 400, headers: corsHeaders }));
         }
         const user = await env.DB.prepare(
           "SELECT id, verification_code, code_expires_at, active FROM staff_users WHERE LOWER(email) = ? LIMIT 1"
         ).bind(email).first<{ id: number; verification_code: string | null; code_expires_at: string | null; active: number }>();
         if (!user || !user.active || !user.verification_code || user.verification_code !== code) {
-          return Response.json({ success: false, error: "Invalid verification code." }, { status: 400, headers: corsHeaders });
+          return withSecurityHeaders(Response.json({ success: false, error: "Invalid verification code." }, { status: 400, headers: corsHeaders }));
         }
         if (user.code_expires_at && new Date(user.code_expires_at).getTime() < Date.now()) {
-          return Response.json({ success: false, error: "Verification code expired." }, { status: 400, headers: corsHeaders });
+          return withSecurityHeaders(Response.json({ success: false, error: "Verification code expired." }, { status: 400, headers: corsHeaders }));
         }
         const passHash = await hashPassword(newPassword);
         await env.DB.prepare(
           "UPDATE staff_users SET password_hash = ?, verified = 1, verification_code = NULL, code_expires_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
         ).bind(passHash, user.id).run();
-        return Response.json({ success: true, message: "Email verified and new password saved. You can sign in now." }, { status: 200, headers: corsHeaders });
+        return withSecurityHeaders(Response.json({ success: true, message: "Email verified and new password saved. You can sign in now." }, { status: 200, headers: corsHeaders }));
       } catch {
-        return Response.json({ success: false, error: "Failed to reset password." }, { status: 500, headers: corsHeaders });
+        return withSecurityHeaders(Response.json({ success: false, error: "Failed to reset password." }, { status: 500, headers: corsHeaders }));
       }
     }
 
     if (url.pathname === "/api/staff/users") {
       const role = await resolveStaffRoleAsync(request, env);
       if (role !== "owner") {
-        return Response.json({ success: false, error: "Only the Owner can manage staff accounts." }, { status: 403, headers: corsHeaders });
+        return withSecurityHeaders(Response.json({ success: false, error: "Only the Owner can manage staff accounts." }, { status: 403, headers: corsHeaders }));
       }
       if (request.method === "GET") {
         const res = await env.DB.prepare("SELECT id, name, email, role, verified, active, verification_code, created_at FROM staff_users ORDER BY id DESC").all();
-        return Response.json({ success: true, users: res.results ?? [] }, { status: 200, headers: corsHeaders });
+        return withSecurityHeaders(Response.json({ success: true, users: res.results ?? [] }, { status: 200, headers: corsHeaders }));
       }
       if (request.method === "POST") {
         const body = (await request.json()) as { name?: string; email?: string; role?: StaffRole };
@@ -451,7 +473,7 @@ export default {
         const email = (body.email || "").toLowerCase().trim();
         const staffRole: StaffRole = body.role === "chief_editor" || body.role === "owner" ? body.role : "reporter";
         if (!name || !email) {
-          return Response.json({ success: false, error: "Name and official email are required." }, { status: 400, headers: corsHeaders });
+          return withSecurityHeaders(Response.json({ success: false, error: "Name and official email are required." }, { status: 400, headers: corsHeaders }));
         }
         const code = generateSixDigitCode();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -459,15 +481,15 @@ export default {
           "INSERT INTO staff_users (name, email, role, verified, active, verification_code, code_expires_at) VALUES (?, ?, ?, 0, 1, ?, ?) ON CONFLICT(email) DO UPDATE SET name = excluded.name, role = excluded.role, active = 1, verification_code = excluded.verification_code, code_expires_at = excluded.code_expires_at, updated_at = CURRENT_TIMESTAMP"
         ).bind(name, email, staffRole, code, expiresAt).run();
         const emailRes = await sendStaffEmail(env, email, "Buddha News — Official Staff Account Verification", "Hello " + name + ",\n\nRole: " + staffRole + "\nVerification code: " + code);
-        return Response.json({ success: true, code, emailSent: emailRes.sent, message: "Staff user saved." }, { status: 201, headers: corsHeaders });
+        return withSecurityHeaders(Response.json({ success: true, code, emailSent: emailRes.sent, message: "Staff user saved." }, { status: 201, headers: corsHeaders }));
       }
       if (request.method === "DELETE") {
         const id = Number(url.searchParams.get("id") || 0);
         if (!id) {
-          return Response.json({ success: false, error: "User ID is required." }, { status: 400, headers: corsHeaders });
+          return withSecurityHeaders(Response.json({ success: false, error: "User ID is required." }, { status: 400, headers: corsHeaders }));
         }
         await env.DB.prepare("DELETE FROM staff_users WHERE id = ?").bind(id).run();
-        return Response.json({ success: true, message: "Staff user removed." }, { status: 200, headers: corsHeaders });
+        return withSecurityHeaders(Response.json({ success: true, message: "Staff user removed." }, { status: 200, headers: corsHeaders }));
       }
     }
 
@@ -481,17 +503,17 @@ export default {
           const reporterSecret = (env.REPORTER_SECRET || "").trim();
 
           if (!ownerSecret && !chiefSecret && !reporterSecret) {
-            return Response.json(
+            return withSecurityHeaders(Response.json(
               { success: false, error: "په Cloudflare Worker کې د ننوتلو پټ کوډ تنظیم شوی نه دی." },
               { status: 500, headers: corsHeaders }
-            );
+            ));
           }
 
           if (!password) {
-            return Response.json(
+            return withSecurityHeaders(Response.json(
               { success: false, error: "پاسورډ سم نه دی." },
               { status: 401, headers: corsHeaders }
-            );
+            ));
           }
 
           let matchedRole: StaffRole | null = null;
@@ -500,35 +522,35 @@ export default {
           else if (reporterSecret && password === reporterSecret) matchedRole = "reporter";
 
           if (!matchedRole) {
-            return Response.json(
+            return withSecurityHeaders(Response.json(
               { success: false, error: "پاسورډ سم نه دی." },
               { status: 401, headers: corsHeaders }
-            );
+            ));
           }
 
           if (body.role && body.role !== matchedRole && matchedRole !== "owner") {
-            return Response.json(
+            return withSecurityHeaders(Response.json(
               { success: false, error: "دا پټ کوډ د دې رول لپاره نه دی." },
               { status: 403, headers: corsHeaders }
-            );
+            ));
           }
 
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: true, token: password, role: matchedRole },
             { status: 200, headers: corsHeaders }
-          );
+          ));
         } catch {
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: false, error: "د ننوتلو پر مهال ستونزه راغله." },
             { status: 400, headers: corsHeaders }
-          );
+          ));
         }
       }
 
-      return Response.json(
+      return withSecurityHeaders(Response.json(
         { error: "Method Not Allowed" },
         { status: 405, headers: corsHeaders }
-      );
+      ));
     }
 
     if (url.pathname === "/api/articles") {
@@ -560,25 +582,25 @@ export default {
           sql += " ORDER BY updated_at DESC, id DESC";
 
           const result = await env.DB.prepare(sql).bind(...bindings).all();
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: true, articles: result.results ?? [] },
             { status: 200, headers: corsHeaders }
-          );
+          ));
         } catch {
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: false, error: "د خبرونو په راوستلو کې ستونزه راغله." },
             { status: 500, headers: corsHeaders }
-          );
+          ));
         }
       }
 
       if (request.method === "POST") {
         const role = await resolveStaffRoleAsync(request, env);
         if (!role) {
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: false, error: "Unauthorized" },
             { status: 401, headers: corsHeaders }
-          );
+          ));
         }
 
         try {
@@ -608,10 +630,10 @@ export default {
           const contentEn = (body.content_en || body.content_ps || body.content_fa || "").trim();
 
           if (!titleEn || !contentEn) {
-            return Response.json(
+            return withSecurityHeaders(Response.json(
               { success: false, error: "سرلیک او متن حتمي دي." },
               { status: 400, headers: corsHeaders }
-            );
+            ));
           }
 
           const baseSlug = slugify(body.slug || titleEn);
@@ -661,7 +683,7 @@ export default {
             )
             .run();
 
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             {
               success: true,
               id: insertResult.meta?.last_row_id,
@@ -669,19 +691,19 @@ export default {
               message: "خبر په بریالیتوب سره اضافه شو.",
             },
             { status: 201, headers: corsHeaders }
-          );
+          ));
         } catch {
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: false, error: "د خبر په خوندي کولو کې ستونزه راغله." },
             { status: 500, headers: corsHeaders }
-          );
+          ));
         }
       }
 
-      return Response.json(
+      return withSecurityHeaders(Response.json(
         { error: "Method Not Allowed" },
         { status: 405, headers: corsHeaders }
-      );
+      ));
     }
 
     const articleMatch = url.pathname.match(/^\/api\/articles\/(\d+)$/);
@@ -691,10 +713,10 @@ export default {
       if (request.method === "PUT") {
         const role = await resolveStaffRoleAsync(request, env);
         if (!role || role === "reporter") {
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: false, error: "یوازې Chief Editor یا Owner راپورونه سمولی او تصویبولی شي." },
             { status: 403, headers: corsHeaders }
-          );
+          ));
         }
 
         try {
@@ -723,10 +745,10 @@ export default {
             .first<Record<string, unknown>>();
 
           if (!existing) {
-            return Response.json(
+            return withSecurityHeaders(Response.json(
               { success: false, error: "خبر ونه موندل شو." },
               { status: 404, headers: corsHeaders }
-            );
+            ));
           }
 
           await env.DB.prepare(
@@ -793,45 +815,45 @@ export default {
             )
             .run();
 
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: true, message: "خبر په بریالیتوب سره تازه شو." },
             { status: 200, headers: corsHeaders }
-          );
+          ));
         } catch {
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: false, error: "د خبر په سمولو کې ستونزه راغله." },
             { status: 500, headers: corsHeaders }
-          );
+          ));
         }
       }
 
       if (request.method === "DELETE") {
         const role = await resolveStaffRoleAsync(request, env);
         if (!role || role === "reporter") {
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: false, error: "یوازې Chief Editor یا Owner راپورونه لرې کولی شي." },
             { status: 403, headers: corsHeaders }
-          );
+          ));
         }
 
         try {
           await env.DB.prepare("DELETE FROM articles WHERE id = ?").bind(id).run();
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: true, message: "خبر په بریالیتوب سره لرې شو." },
             { status: 200, headers: corsHeaders }
-          );
+          ));
         } catch {
-          return Response.json(
+          return withSecurityHeaders(Response.json(
             { success: false, error: "د خبر په لرې کولو کې ستونزه راغله." },
             { status: 500, headers: corsHeaders }
-          );
+          ));
         }
       }
 
-      return Response.json(
+      return withSecurityHeaders(Response.json(
         { error: "Method Not Allowed" },
         { status: 405, headers: corsHeaders }
-      );
+      ));
     }
 
     return env.ASSETS.fetch(request);
