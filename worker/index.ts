@@ -247,20 +247,13 @@ async function handleTrpcProcedure(
 }
 
 
+
 function withSecurityHeaders(response: Response): Response {
   const headers = new Headers(response.headers);
-  if (!headers.has("X-Content-Type-Options")) {
-    headers.set("X-Content-Type-Options", "nosniff");
-  }
-  if (!headers.has("X-Frame-Options")) {
-    headers.set("X-Frame-Options", "SAMEORIGIN");
-  }
-  if (!headers.has("Referrer-Policy")) {
-    headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  }
-  if (!headers.has("Permissions-Policy")) {
-    headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  }
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "SAMEORIGIN");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   return withSecurityHeaders(new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
